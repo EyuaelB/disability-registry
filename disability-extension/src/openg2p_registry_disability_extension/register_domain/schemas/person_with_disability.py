@@ -66,6 +66,11 @@ class G2PSchemaPersonWithDisability:
 
     unmet_support_needs_count: Optional[int] = None
     has_unmet_support_need: Optional[bool] = None
+    geo_level_1_value_id: Optional[str] = None
+    geo_level_2_value_id: Optional[str] = None
+    geo_level_3_value_id: Optional[str] = None
+    geo_level_4_value_id: Optional[str] = None
+    geo_level_5_value_id: Optional[str] = None
 
 
 class G2PRegisterSchemaPersonWithDisability(

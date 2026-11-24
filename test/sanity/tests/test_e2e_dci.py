@@ -76,17 +76,19 @@ def test_dci_search_returns_the_consented_record(partner_client, cfg, priv, seed
         f"MinIO every record fails to render and the error surfaces as an empty 200."
     )
 
-    # Consent asked for the demographic_info scope, so it must be present AND
-    # carry the values the data-seed Job injected. This registry's DCI template
-    # (dr_person_to_dci.json.j2) puts name/sex/birth_date directly under the
-    # demographic_info block — that block is DO.DR.01 DRPerson nested inside
-    # DO.DR.03 PersonwithDisability.
+    # Consent asked for the personal_details scope, so it must be present AND
+    # carry the values the data-seed Job injected. Following DO.DR.03, this
+    # registry's DCI template (dr_person_to_dci.json.j2) nests the DO.DR.02
+    # Member block under `personal_details`, and the DO.DR.01 DRPerson block
+    # (name / sex / birth_date) under `demographic_info` inside it.
     scope = cfg.data_scopes[0]
     record = records[0]
     assert scope in record, f"consented scope '{scope}' missing from record: {sorted(record)}"
 
     step(f"asserting consented scope '{scope}' is present and carries the seeded demographics")
-    demographic = record.get(scope) or {}
+    member = record.get(scope) or {}
+    demographic = member.get("demographic_info") if isinstance(member, dict) and "demographic_info" in member else member
+    demographic = demographic or {}
     name = demographic.get("name") or {}
     assert name.get("given_name") == fixtures.FARMER["first_name"]
     assert name.get("surname") == fixtures.FARMER["last_name"]

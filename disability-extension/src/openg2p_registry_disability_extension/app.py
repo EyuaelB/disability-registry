@@ -73,6 +73,17 @@ class Initializer(BaseInitializer):
         G2PRegisterDomainServiceRelatedPerson()
         G2PRegisterDomainServiceProgramEnrolment()
 
+        # The disability-specific DCI endpoints (get-disability-status / details /
+        # support). The partner API's main program runs this initializer before it
+        # builds the web app, so a controller created here lands on that app.
+        # register_dr_controller() is a logged no-op in every other process.
+        try:
+            from .partner_api import register_dr_controller
+
+            register_dr_controller()
+        except Exception:  # a broken optional route must not stop the service
+            _logger.exception("DR endpoints could not be registered")
+
     def migrate_database(self, args):
 
         async def migrate():

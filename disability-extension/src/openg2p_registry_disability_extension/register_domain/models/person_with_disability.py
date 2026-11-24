@@ -106,6 +106,18 @@ class G2PPersonWithDisability:
     # child tables per row makes every dashboard and every targeting query slow.
     # Recomputed by the domain service, never edited by hand.
     unmet_support_needs_count: Mapped[int] = mapped_column(Integer, nullable=True)
+
+    # Location, one column per Master Data level, derived from
+    # geo_code_hierarchy_json by services/utils/geo_levels.py. This is what lets a
+    # partner filter "everyone in region X" (API.DR.01 expression search): the
+    # platform keeps only the lowest code and the JSON path, neither of which can
+    # be filtered by level. The levels are the country pack's, so they are named
+    # by position; level 1 is the top of the hierarchy.
+    geo_level_1_value_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
+    geo_level_2_value_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
+    geo_level_3_value_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
+    geo_level_4_value_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
+    geo_level_5_value_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
     has_unmet_support_need: Mapped[bool] = mapped_column(Boolean, nullable=True, index=True)
 
 

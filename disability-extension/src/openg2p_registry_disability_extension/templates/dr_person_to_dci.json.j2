@@ -1,69 +1,275 @@
 {# ===========================================================================
-   Outbound: PersonWithDisability -> SPDCI Disability Registry data objects.
+   Outbound: PersonWithDisability -> SPDCI DO.DR.03 PersonwithDisability.
 
-   Renders DO.DR.03 PersonwithDisability, carrying DO.DR.01 DRPerson inside
-   `demographic_info` and DO.DR.02 Member's socio-economic attributes alongside.
+   Layout follows the standard: the DO.DR.02 Member block (identity, DRPerson
+   demographics, family, socio-economic attributes) sits under `personal_details`;
+   status, details, support, transport, housing and programme enrolments sit at
+   the root beside it.
 
    IMPORTANT — the TOP-LEVEL keys of this document are the registry's CONSENT
-   SCOPES. Adding a key here creates a scope a partner can be granted; renaming
-   one silently revokes access for every partner consented to the old name.
-   The sanity e2e consents to `demographic_info` and asserts nothing outside its
-   consented scopes comes back.
+   SCOPES (clamping is a strict allow-list over them). Adding a key creates a
+   scope a partner can be granted; renaming one silently revokes access for
+   every partner consented to the old name. The sanity e2e consents to
+   `personal_details` and asserts nothing outside its consented scopes comes back.
+
+   Code lists: every enum is translated through the DCI_OUT tables in the
+   generated block below (source: register_domain/models/dci_crosswalk.py; keep
+   in step with ./scripts/generate-dci-crosswalk.py). No keyword guessing.
+
+   Known limitation: the platform renders with a bare Jinja environment and no
+   current date, so "Expired" (CD.DR.14) is emitted only when the stored status
+   is EXPIRED; the live comparison against certificate_expiry_date happens in the
+   get-disability-status endpoint (partner_api/dr_query.py).
 
    Child registers arrive under the snake_case of their register mnemonic
-   (registry-core `_to_snake_case`), which for this registry happens to match the
-   SPDCI object names: disability_detail, human_assistance, assistive_technology,
-   medical_care, housing_support, animal_assistance, related_person,
-   program_enrolment.
+   (registry-core `_to_snake_case`): disability_detail, human_assistance,
+   assistive_technology, medical_care, housing_support, animal_assistance,
+   related_person, program_enrolment.
    =========================================================================== #}
-{%- macro norm(value) -%}
-{{- (value or '') | string | trim | upper -}}
+{# BEGIN GENERATED DCI CROSSWALK — ./scripts/generate-dci-crosswalk.py #}
+{%- set DCI_OUT = {
+  "AGE_ONSET": {
+    "ADOLESCENCE_13_17": "Childhood",
+    "ADULTHOOD_18_59": "Working age",
+    "AT_BIRTH": "Born with",
+    "CHILDHOOD_6_12": "Childhood",
+    "EARLY_CHILDHOOD_0_5": "Childhood",
+    "OLD_AGE_60_PLUS": "Old age",
+    "UNKNOWN": ""
+  },
+  "ANIMAL_ASSISTANCE_TYPE": {
+    "ALERT_DOG": "Service dog (guide, signal..)",
+    "GUIDE_DOG": "Service dog (guide, signal..)",
+    "HEARING_DOG": "Service dog (guide, signal..)",
+    "MOBILITY_ASSISTANCE_DOG": "Service dog (guide, signal..)",
+    "OTHER": "Other",
+    "PSYCHIATRIC_SERVICE_DOG": "Service dog (guide, signal..)",
+    "SEIZURE_RESPONSE_DOG": "Service dog (guide, signal..)",
+    "THERAPY_ANIMAL": "Therapy animal"
+  },
+  "ASSISTIVE_TECHNOLOGY_TYPE": {
+    "BRAILLE_DEVICES": "Braille displays (note takers)",
+    "CANES": "Cane/stick",
+    "COCHLEAR_IMPLANTS": "Cochlear implants",
+    "COMMUNICATION_BOARDS": "Communication boards/books/cards",
+    "CRUTCHES": "Crutches, auxiliary/elbow",
+    "ELECTRIC_WHEELCHAIR": "Wheelchairs, electrically powered",
+    "HEARING_AIDS": "Hearing aids (digital) and batteries",
+    "INCONTINENCE_PRODUCTS": "Incontinence products, absorbent",
+    "MAGNIFIERS": "Magnifiers, optical",
+    "MANUAL_WHEELCHAIR": "Wheelchairs, manual",
+    "ORTHOSES": "Club foot brace",
+    "OTHER": "Other",
+    "PRESSURE_RELIEF_CUSHIONS": "Pressure relief cushions",
+    "PROSTHESES": "Prostheses, lower limb",
+    "SCREEN_READERS": "Screen readers",
+    "SPECTACLES": "Spectacles",
+    "SPEECH_GENERATING_DEVICES": "Communication software",
+    "THERAPEUTIC_FOOTWEAR": "Therapeutic footwear",
+    "WALKING_FRAMES": "Walking frames/walkers"
+  },
+  "CAREGIVER_RELATIONSHIP": {
+    "CHILD": "CHILD",
+    "COMMUNITY_VOLUNTEER": "",
+    "FRIEND": "SIGOTHR",
+    "INSTITUTION": "",
+    "NEIGHBOUR": "SIGOTHR",
+    "OTHER": "",
+    "OTHER_RELATIVE": "FAMMEMB",
+    "PAID_CAREGIVER": "",
+    "PARENT": "PRN",
+    "SIBLING": "SIB",
+    "SPOUSE": "SPS"
+  },
+  "DISABILITY_STATUS": {
+    "ASSESSED_DISABLED": "Approved",
+    "ASSESSED_NOT_DISABLED": "",
+    "EXPIRED": "Expired",
+    "PENDING_ASSESSMENT": "Pending approval",
+    "SELF_DECLARED": "Pending approval",
+    "UNKNOWN": ""
+  },
+  "DISABILITY_STATUS_LEVEL": {
+    "MILD": "Mild",
+    "MODERATE": "Moderate",
+    "NONE": "",
+    "PROFOUND": "High support needs",
+    "SEVERE": "Severe"
+  },
+  "HOUSING_SUPPORT_TYPE": {
+    "ACCESSIBLE_SOCIAL_HOUSING": "Relocation to accessible housing as home adaptation not feasible",
+    "ASSISTED_LIVING_FACILITY": "Relocation to accessible housing as home adaptation not feasible",
+    "BATHROOM_MODIFICATION": "Home adaptation",
+    "DOOR_WIDENING": "Home adaptation",
+    "GROUND_FLOOR_ALLOCATION": "Relocation to accessible housing as home adaptation not feasible",
+    "HANDRAILS": "Home adaptation",
+    "HOME_ADAPTATION": "Home adaptation",
+    "HOME_REPAIR": "Home adaptation",
+    "OTHER": "Home adaptation",
+    "RAMP_INSTALLATION": "Home adaptation",
+    "RELOCATION": "Relocation to accessible housing as home adaptation not feasible",
+    "RENT_SUBSIDY": "Significant utility costs",
+    "RESIDENTIAL_CARE": "Relocation to accessible housing as home adaptation not feasible",
+    "UTILITY_COST_SUPPORT": "Significant utility costs"
+  },
+  "HOUSING_TYPE": {
+    "FAMILY_HOME": "Living in relatives' home",
+    "GROUP_HOME": "Care institution",
+    "HOMELESS": "",
+    "HOSPITAL_LONG_STAY": "Care institution",
+    "INDEPENDENT_HOME": "Own home/rent",
+    "OTHER": "",
+    "RESIDENTIAL_INSTITUTION": "Care institution",
+    "SOCIAL_HOUSING": "Social housing",
+    "SUPPORTED_LIVING": "Social housing",
+    "TEMPORARY_SHELTER": ""
+  },
+  "HUMAN_ASSISTANCE_TYPE": {
+    "COMMUNICATION": "communication",
+    "DECISION_MAKING_SUPPORT": "decision_making",
+    "DOMESTIC_SUPPORT": "basic_activity",
+    "EDUCATIONAL_SUPPORT": "multiple",
+    "EMPLOYMENT_SUPPORT": "multiple",
+    "FINANCIAL_MANAGEMENT": "decision_making",
+    "MEDICAL_SUPPORT": "basic_activity",
+    "MOBILITY": "mobility",
+    "MULTIPLE": "multiple",
+    "OTHER": "multiple",
+    "PERSONAL_CARE": "basic_activity",
+    "SIGN_LANGUAGE_INTERPRETATION": "communication",
+    "SUPERVISION": "decision_making"
+  },
+  "IMPAIRMENT_CAUSE": {
+    "AGEING": "Ageing",
+    "CONFLICT_VIOLENCE": "Violence",
+    "CONGENITAL": "Birth congenital",
+    "ILLNESS": "Illness",
+    "MEDICAL_COMPLICATION": "Birth complication",
+    "NATURAL_DISASTER": "Domestic accident",
+    "OTHER": "",
+    "OTHER_ACCIDENT": "Domestic accident",
+    "ROAD_ACCIDENT": "Road accident",
+    "UNKNOWN": "",
+    "WORK_ACCIDENT": "Work accident"
+  },
+  "IMPAIRMENT_LEVEL": {
+    "A_LOT_OF_DIFFICULTY": "Severe impairment or difficulty",
+    "CANNOT_DO_AT_ALL": "Complete impairment or difficulty",
+    "NO_DIFFICULTY": "No impairment or difficulty",
+    "SOME_DIFFICULTY": "Mild impairment or difficulty"
+  },
+  "IMPAIRMENT_TYPE": {
+    "CHRONIC_ILLNESS": "Others (skin, cardiovascular, respiratory, digestive systems)",
+    "DEAFBLIND": "Multiple",
+    "HEARING": "Hearing",
+    "INTELLECTUAL": "Intellectual",
+    "LEARNING": "Intellectual",
+    "MULTIPLE": "Multiple",
+    "NEUROLOGICAL": "Others (skin, cardiovascular, respiratory, digestive systems)",
+    "OTHER": "Others",
+    "PHYSICAL_MOBILITY": "Physical and movement related functions",
+    "PSYCHOSOCIAL": "Mental (psycho-social)",
+    "SELF_CARE": "Self-care",
+    "SPEECH_LANGUAGE": "Voice and speech",
+    "VISUAL": "Seeing"
+  },
+  "MEDICAL_CARE_TYPE": {
+    "DIALYSIS": "Specialised health care",
+    "MAINTENANCE_MEDICINE": "Maintenance medicine",
+    "NUTRITION_SUPPORT": "Specialised health care",
+    "OCCUPATIONAL_THERAPY": "Rehabilitation",
+    "OTHER": "Specialised health care",
+    "PHYSIOTHERAPY": "Rehabilitation",
+    "PSYCHIATRIC_CARE": "Specialised health care",
+    "PSYCHOLOGICAL_COUNSELLING": "Specialised health care",
+    "REGULAR_SPECIALIST_REVIEW": "Specialised health care",
+    "REHABILITATION": "Rehabilitation",
+    "RESPIRATORY_SUPPORT": "Specialised health care",
+    "SPECIALISED_HEALTH_CARE": "Specialised health care",
+    "SPEECH_THERAPY": "Rehabilitation",
+    "SURGERY": "Specialised health care",
+    "WOUND_CARE": "Specialised health care"
+  },
+  "RELATIONSHIP": {
+    "CHILD": "CHILD",
+    "GRANDCHILD": "GRNDCHILD",
+    "GRANDPARENT": "GRPRN",
+    "GUARDIAN": "GUARDIAN",
+    "NON_RELATIVE": "SIGOTHR",
+    "OTHER_RELATIVE": "FAMMEMB",
+    "PARENT": "PRN",
+    "SIBLING": "SIB",
+    "SPOUSE": "SPS"
+  },
+  "SEX": {
+    "FEMALE": "female",
+    "MALE": "male",
+    "OTHERS": "other",
+    "UNKNOWN": "unknown"
+  },
+  "SUPPORT_FREQUENCY": {
+    "AS_NEEDED": "Occasional",
+    "DAILY": "Daily",
+    "MONTHLY": "Occasional",
+    "NONE": "None",
+    "OCCASIONAL": "Occasional",
+    "PERMANENT": "Permanent",
+    "TEMPORARY": "Occasional",
+    "WEEKLY": "Weekly"
+  },
+  "SUPPORT_STATUS": {
+    "DISCONTINUED": "Not required",
+    "NOT_REQUIRED": "Not required",
+    "PARTIALLY_RECEIVED": "Received, but not enough",
+    "RECEIVED": "Received",
+    "RECEIVING": "Received",
+    "REQUIRED": "Required"
+  },
+  "TRANSPORT_REQUIREMENT": {
+    "ACCESSIBLE_PUBLIC_TRANSPORT": "Public transportation",
+    "ADAPTED_VEHICLE": "Adapted vehicle",
+    "AMBULANCE_TRANSPORT": "Point-to-point transportation",
+    "ESCORTED_TRAVEL": "Point-to-point transportation",
+    "NONE": "",
+    "OTHER": "",
+    "TRANSPORT_ALLOWANCE": "Public transportation",
+    "WHEELCHAIR_ACCESSIBLE_VEHICLE": "Adapted vehicle"
+  }
+} -%}
+{# END GENERATED DCI CROSSWALK #}
+{%- macro cw(list, value) -%}
+{{- DCI_OUT[list].get((value or '') | string | trim | upper, '') -}}
 {%- endmacro -%}
-{# Sentence case: MAINTENANCE_MEDICINE -> "Maintenance medicine". This is the
-   wording style the SPDCI examples use for support and care types. #}
-{%- macro sentence(value) -%}
-{%- set v = (value or '') | string | trim | replace('_', ' ') | lower -%}
-{%- if v -%}{{ v[0] | upper }}{{ v[1:] }}{%- endif -%}
-{%- endmacro -%}
-{# Title case: WORK_ACCIDENT -> "Work Accident", matching the DO.DR.04 example. #}
-{%- macro titled(value) -%}
-{{- (value or '') | string | trim | replace('_', ' ') | lower | title -}}
-{%- endmacro -%}
-{%- macro sex(value) -%}
-{%- set v = norm(value) -%}
-{%- if v in ['MALE', 'M'] -%}male
-{%- elif v in ['FEMALE', 'F'] -%}female
-{%- elif v in ['OTHERS', 'OTHER'] -%}others
-{%- elif v -%}{{ v | lower }}
-{%- else -%}unknown
+{# DF.COM.STRING.01 date_time: a stored date becomes midnight UTC; a stored
+   timestamp is passed through; empty stays empty. #}
+{%- macro dt(value) -%}
+{%- set s = (value | string | trim) if value is not none else '' -%}
+{%- if not s -%}
+{%- elif 'T' in s -%}{{ s }}
+{%- elif ' ' in s -%}{{ s | replace(' ', 'T') }}
+{%- else -%}{{ s }}T00:00:00Z
 {%- endif -%}
 {%- endmacro -%}
-{# DO.DR.04 impairment_level. The registry stores the Washington Group scale;
-   the standard's own example wording is "Severe impairment or difficulty", so
-   the four WG points are mapped onto that phrasing rather than emitted raw. #}
-{%- macro impairment_level_cd(value) -%}
-{%- set v = norm(value) -%}
-{%- if v == 'NO_DIFFICULTY' -%}No impairment or difficulty
-{%- elif v == 'SOME_DIFFICULTY' -%}Mild impairment or difficulty
-{%- elif v == 'A_LOT_OF_DIFFICULTY' -%}Severe impairment or difficulty
-{%- elif v == 'CANNOT_DO_AT_ALL' -%}Complete impairment or difficulty
-{%- elif v -%}{{ sentence(value) }}
-{%- endif -%}
+{# CD.DR.14 from the stored outcome. EXPIRED is explicit; see the header note. #}
+{%- macro status_cd(value) -%}
+{{- cw('DISABILITY_STATUS', value) -}}
 {%- endmacro -%}
-{%- macro relationship_cd(value) -%}
-{%- set v = norm(value) -%}
-{%- if v == 'OTHER_RELATIVE' -%}relative
-{%- elif v == 'NON_RELATIVE' -%}associate
-{%- elif v -%}{{ v | lower | replace('_', ' ') }}
+{# CD.DR.07 life stage from the band, else from the integer age. #}
+{%- macro onset_cd(band, age) -%}
+{%- set b = cw('AGE_ONSET', band) -%}
+{%- if b -%}{{ b }}
+{%- elif age is not none and (age | string | trim) -%}
+  {%- set a = age | int(-1) -%}
+  {%- if a == 0 -%}Born with
+  {%- elif 0 < a < 18 -%}Childhood
+  {%- elif 18 <= a < 60 -%}Working age
+  {%- elif a >= 60 -%}Old age
+  {%- endif -%}
 {%- endif -%}
-{%- endmacro -%}
-{%- macro employment_cd(value) -%}
-{{- (value or '') | string | trim | lower | replace('_', ' ') -}}
 {%- endmacro -%}
 {# Contacts: G2PPerson stores phone_numbers/emails as JSONB, which senders have
    variously produced as a list of strings, a list of objects, or a stringified
-   list. Flattened into a real list here — never `{% set x = macro() %}` on a
-   macro that prints a list, which yields markup instead of items. #}
+   list. Flattened into a real list here. #}
 {%- macro contact_append_from_raw(raw, target) -%}
 {%- if raw is string -%}
   {%- set t = raw | trim -%}
@@ -93,6 +299,31 @@
   {%- endfor -%}
 {%- endif -%}
 {%- endmacro -%}
+{%- macro support_row(row, type_list, type_field, jsonld_type) -%}
+{
+  "@type": {{ jsonld_type | tojson }},
+  "type": {{ cw(type_list, row.get(type_field)) | tojson }},
+  "support_status": {{ cw('SUPPORT_STATUS', row.get('support_status')) | tojson }},
+  "registration_date": {{ dt(row.get('registration_date')) | tojson }},
+  "last_updated": {{ dt(row.get('last_updated')) | tojson }}
+}
+{%- endmacro -%}
+{%- macro human_row(row) -%}
+{
+  "@type": "dr:HumanAssistance",
+  "type": {{ cw('HUMAN_ASSISTANCE_TYPE', row.get('assistance_type')) | tojson }},
+  "frequency": {{ cw('SUPPORT_FREQUENCY', row.get('frequency')) | tojson }},
+  "support_status": {{ cw('SUPPORT_STATUS', row.get('support_status')) | tojson }},
+  "caregiver": {
+    "@type": "Person",
+    "name": {{ (row.get('caregiver_name') or '') | tojson }},
+    "identifier": {{ (row.get('caregiver_identifier') or '') | tojson }}
+  },
+  "relationship": {{ cw('CAREGIVER_RELATIONSHIP', row.get('caregiver_relationship')) | tojson }},
+  "registration_date": {{ dt(row.get('registration_date')) | tojson }},
+  "last_updated": {{ dt(row.get('last_updated')) | tojson }}
+}
+{%- endmacro -%}
 {%- set p = expanded -%}
 {%- set phone_list = [] -%}
 {%- set _ = contact_append_from_raw(p.get('phone_numbers'), phone_list) -%}
@@ -106,8 +337,8 @@
 {%- set animal = p.get('animal_assistance') or [] -%}
 {%- set relatives = p.get('related_person') or [] -%}
 {%- set programs = p.get('program_enrolment') or [] -%}
-{%- set uin_val = p.get('functional_record_id') or '' -%}
-{%- set nid_val = p.get('foundational_id') or '' -%}
+{%- set reg_no = p.get('functional_record_id') or '' -%}
+{%- set nid = p.get('foundational_id') or '' -%}
 {%- set langs = namespace(items=[]) -%}
 {%- if p.get('language_code') %}
   {%- for part in (p.get('language_code') | string).split(',') -%}
@@ -116,207 +347,218 @@
   {%- endfor -%}
 {%- endif -%}
 {%- set comm_needs = p.get('communication_needs') or [] -%}
+{%- set registered = dt(p.get('registration_date') or p.get('created_at')) -%}
+{%- set updated = dt(p.get('last_approved_at')) -%}
 {
   "@context": {
     "spdci": "https://schema.spdci.org/core/v1/data",
-    "dr": "https://schema.spdci.org/disability-registry/v1/",
+    "dr": "https://schema.spdci.org/extensions/dr/v1/",
     "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
     "xsd": "http://www.w3.org/2001/XMLSchema#",
     "common": "https://schema.spdci.org/common/v1/"
   },
-  "@id": {{ ('https://disability-registry.example.org/person/' ~ uin_val) | tojson }},
-  "@type": "dr:PersonwithDisability",
-  "member_identifier": [
-    {
-      "@type": "Identifier",
-      "identifier_type": "UIN",
-      "identifier_value": {{ uin_val | tojson }}
-    }
-    {%- if p.get('disability_certificate_number') -%},
-    {
-      "@type": "Identifier",
-      "identifier_type": "DisabilityCertificate",
-      "identifier_value": {{ p.get('disability_certificate_number') | tojson }}
-    }
-    {%- endif -%}
-  ],
-  "demographic_info": {
-    "@type": "DRPerson",
-    "identifier": [
+  "@id": {{ ('https://disability-registry.example.org/person/' ~ reg_no) | tojson }},
+  "@type": "spdci-extensions-dci:DisabledPerson",
+  "personal_details": {
+    "@type": "Member",
+    "member_identifier": [
       {
         "@type": "Identifier",
-        "identifier_type": "NationalID",
-        "identifier_value": {{ nid_val | tojson }}
-      }
-    ],
-    "name": {
-      "@type": "Name",
-      "given_name": {{ (p.get('first_name') or p.get('given_name') or '') | tojson }},
-      "second_name": {{ (p.get('middle_name') or '') | tojson }},
-      "surname": {{ (p.get('last_name') or '') | tojson }},
-      "prefix": {{ (p.get('prefix') or '') | tojson }},
-      "suffix": {{ (p.get('suffix') or '') | tojson }}
-    },
-    "sex": {{ sex(p.get('gender')) | tojson }},
-    "birth_date": {{ (p.get('birth_date') | string if p.get('birth_date') is not none else '') | tojson }},
-    "death_date": {{ (p.get('death_date') | string if p.get('death_date') is not none else '') | tojson }},
-    "address": [
+        "identifier_type": "UIN",
+        "identifier_value": {{ nid | tojson }}
+      },
       {
-        "@type": "Address",
-        "address_line_1": {{ (p.get('address_line_1') or '') | tojson }},
-        "address_line_2": {{ (p.get('address_line_2') or '') | tojson }},
-        "postal_code": {{ (p.get('postal_code') or '') | tojson }},
-        "country_code": {{ (p.get('country_code') or '') | tojson }}
+        "@type": "Identifier",
+        "identifier_type": "DisabilityRegistryId",
+        "identifier_value": {{ reg_no | tojson }}
+      }
+      {%- if p.get('disability_certificate_number') -%},
+      {
+        "@type": "Identifier",
+        "identifier_type": "DisabilityCertificate",
+        "identifier_value": {{ p.get('disability_certificate_number') | tojson }}
+      }
+      {%- endif -%}
+    ],
+    "demographic_info": {
+      "@type": "DRPerson",
+      "identifier": [
+        {
+          "@type": "Identifier",
+          "identifier_type": "UIN",
+          "identifier_value": {{ nid | tojson }}
+        }
+      ],
+      "name": {
+        "@type": "Name",
+        "given_name": {{ (p.get('first_name') or p.get('given_name') or '') | tojson }},
+        "second_name": {{ (p.get('middle_name') or '') | tojson }},
+        "surname": {{ (p.get('last_name') or '') | tojson }},
+        "prefix": {{ (p.get('prefix') or '') | tojson }},
+        "suffix": {{ (p.get('suffix') or '') | tojson }}
+      },
+      "sex": {{ (cw('SEX', p.get('gender')) or 'unknown') | tojson }},
+      "birth_date": {{ dt(p.get('birth_date')) | tojson }},
+      "death_date": {{ dt(p.get('death_date')) | tojson }},
+      "address": [
+        {
+          "@type": "Address",
+          "address_line_1": {{ (p.get('address_line_1') or '') | tojson }},
+          "address_line_2": {{ (p.get('address_line_2') or '') | tojson }},
+          "postal_code": {{ (p.get('postal_code') or '') | tojson }},
+          "country_code": {{ (p.get('country_code') or '') | tojson }},
+          "geo_level_1_value_id": {{ (p.get('geo_level_1_value_id') or '') | tojson }},
+          "geo_level_2_value_id": {{ (p.get('geo_level_2_value_id') or '') | tojson }},
+          "geo_level_3_value_id": {{ (p.get('geo_level_3_value_id') or '') | tojson }},
+          "geo_lowest_level_value_id": {{ (p.get('geo_lowest_level_value_id') or '') | tojson }}
+        }
+      ],
+      "phone_number": [
+        {%- for phone in phone_list -%}
+        {{ phone | tojson }}{% if not loop.last %},{% endif %}
+        {%- endfor -%}
+      ],
+      "email": [
+        {%- for email in email_list -%}
+        {{ email | tojson }}{% if not loop.last %},{% endif %}
+        {%- endfor -%}
+      ],
+      "registration_date": {{ registered | tojson }},
+      "last_updated": {{ updated | tojson }}
+    },
+    "related_person": [
+      {%- for row in relatives -%}
+      {
+        "@type": "RelatedPerson",
+        "relationship_type": {{ cw('RELATIONSHIP', row.get('relationship_type')) | tojson }},
+        "related_member": {
+          "@type": "Person",
+          "identifier": [
+            {
+              "@type": "Identifier",
+              "identifier_type": "UIN",
+              "identifier_value": {{ (row.get('related_person_identifier') or '') | tojson }}
+            }
+          ],
+          "name": {
+            "@type": "Name",
+            "given_name": {{ (row.get('related_person_name') or '') | tojson }}
+          },
+          "birth_date": {{ dt(row.get('related_person_birth_date')) | tojson }}
+        },
+        "additional_attributes": [
+          {
+            "is_primary_caregiver": {% if row.get('is_primary_caregiver') %}true{% else %}false{% endif %},
+            "is_legal_guardian": {% if row.get('is_legal_guardian') %}true{% else %}false{% endif %},
+            "is_emergency_contact": {% if row.get('is_emergency_contact') %}true{% else %}false{% endif %}
+          }
+        ]
+      }{% if not loop.last %},{% endif %}
+      {%- endfor -%}
+    ],
+    "self_id_disability": {% if p.get('self_id_disability') is none %}null{% elif p.get('self_id_disability') %}1{% else %}0{% endif %},
+    "disability_info": [],
+    "marital_status": {{ (p.get('marital_status') or '') | string | trim | lower | replace('_', ' ') | tojson }},
+    "employment_status": {{ (p.get('employment_status') or '') | string | trim | lower | replace('_', ' ') | tojson }},
+    "occupation": {{ (p.get('occupation') or '') | string | trim | lower | replace('_', ' ') | tojson }},
+    "income_level": {{ (p.get('income_level') or '') | string | trim | lower | replace('_', ' ') | tojson }},
+    "education_level": {{ (p.get('education_level') or '') | string | trim | lower | replace('_', ' ') | tojson }},
+    "language_code": {% if langs.items %}{{ langs.items | tojson }}{% else %}[]{% endif %},
+    "additional_attributes": [
+      {
+        "support_needs_level": {{ (p.get('support_needs_level') or '') | string | trim | lower | replace('_', ' ') | tojson }},
+        "legal_capacity_status": {{ (p.get('legal_capacity_status') or '') | string | trim | lower | replace('_', ' ') | tojson }},
+        "communication_needs": {% if comm_needs %}{{ comm_needs | tojson }}{% else %}[]{% endif %},
+        "assessment_date": {{ dt(p.get('assessment_date')) | tojson }},
+        "assessment_authority": {{ (p.get('assessment_authority') or '') | tojson }},
+        "certificate_issue_date": {{ dt(p.get('certificate_issue_date')) | tojson }},
+        "certificate_expiry_date": {{ dt(p.get('certificate_expiry_date')) | tojson }},
+        "unmet_support_needs_count": {% if p.get('unmet_support_needs_count') is none %}null{% else %}{{ p.get('unmet_support_needs_count') }}{% endif %},
+        "registration_channel": {{ (p.get('registration_channel') or '') | string | trim | lower | replace('_', ' ') | tojson }},
+        "registry_disability_status": {{ (p.get('disability_status') or '') | tojson }}
       }
     ],
-    "phone_number": [
-      {%- for phone in phone_list -%}
-      {{ phone | tojson }}{% if not loop.last %},{% endif %}
-      {%- endfor -%}
-    ],
-    "email": [
-      {%- for email in email_list -%}
-      {{ email | tojson }}{% if not loop.last %},{% endif %}
-      {%- endfor -%}
-    ],
-    "registration_date": {{ (p.get('registration_date') or p.get('created_at') or '') | string | tojson }},
-    "last_updated": {{ (p.get('last_approved_at') or '') | string | tojson }}
+    "registration_date": {{ registered | tojson }},
+    "last_updated": {{ updated | tojson }}
   },
-  "self_id_disability": {% if p.get('self_id_disability') is none %}null{% elif p.get('self_id_disability') %}1{% else %}0{% endif %},
-  "disability_status": {{ sentence(p.get('disability_status')) | tojson }},
-  "disability_status_level": {{ sentence(p.get('disability_status_level')) | tojson }},
+  "disability_status": {{ status_cd(p.get('disability_status')) | tojson }},
+  "disability_status_level": {{ cw('DISABILITY_STATUS_LEVEL', p.get('disability_status_level')) | tojson }},
   "disability_details": [
     {%- for row in details -%}
     {
       "@type": "dr:DisabilityDetails",
-      "impairment_type": {{ sentence(row.get('impairment_type')) | tojson }},
-      "impairment_level": {{ impairment_level_cd(row.get('impairment_level')) | tojson }},
-      "impairment_cause": {{ titled(row.get('impairment_cause')) | tojson }},
-      "age_on_set": {% if row.get('age_on_set') is none %}null{% else %}{{ row.get('age_on_set') }}{% endif %}
+      "impairment_type": {{ cw('IMPAIRMENT_TYPE', row.get('impairment_type')) | tojson }},
+      "impairment_level": {{ cw('IMPAIRMENT_LEVEL', row.get('impairment_level')) | tojson }},
+      "impairment_cause": {{ cw('IMPAIRMENT_CAUSE', row.get('impairment_cause')) | tojson }},
+      "age_on_set": {{ onset_cd(row.get('age_onset_band'), row.get('age_on_set')) | tojson }},
+      "additional_attributes": [
+        {
+          "age_on_set_years": {% if row.get('age_on_set') is none %}null{% else %}{{ row.get('age_on_set') }}{% endif %},
+          "is_primary_impairment": {% if row.get('is_primary_impairment') %}true{% else %}false{% endif %},
+          "assessment_method": {{ (row.get('assessment_method') or '') | tojson }}
+        }
+      ]
     }{% if not loop.last %},{% endif %}
     {%- endfor -%}
   ],
-  {# DO.DR.05 DisabilitySupport is a CONTAINER, not a table: it groups the five
-     support objects. Modelled here as one scope so a partner consenting to
-     "support needs" gets a coherent picture rather than five disjoint grants. #}
-  "disability_support": {
-    "@type": "dr:DisabilitySupport",
-    "human_assistance": [
-      {%- for row in human -%}
-      {
-        "@type": "dr:HumanAssistance",
-        "type": {{ (row.get('assistance_type') or '') | string | trim | lower | replace('_', ' ') | tojson }},
-        "frequency": {{ sentence(row.get('frequency')) | tojson }},
-        "support_status": {{ sentence(row.get('support_status')) | tojson }},
-        "caregiver": {
-          "@type": "Person",
-          "name": {{ (row.get('caregiver_name') or '') | tojson }},
-          "identifier": {{ (row.get('caregiver_identifier') or '') | tojson }}
-        },
-        "relationship": {{ relationship_cd(row.get('caregiver_relationship')) | tojson }},
-        "registration_date": {{ (row.get('registration_date') or '') | string | tojson }},
-        "last_updated": {{ (row.get('last_updated') or '') | string | tojson }}
-      }{% if not loop.last %},{% endif %}
-      {%- endfor -%}
-    ],
-    "assistive_technology": [
-      {%- for row in assistive -%}
-      {
-        "@type": "dr:AssistiveTechnology",
-        "type": {{ sentence(row.get('assistive_technology_type')) | tojson }},
-        "support_status": {{ sentence(row.get('support_status')) | tojson }},
-        "registration_date": {{ (row.get('registration_date') or '') | string | tojson }},
-        "last_updated": {{ (row.get('last_updated') or '') | string | tojson }}
-      }{% if not loop.last %},{% endif %}
-      {%- endfor -%}
-    ],
-    "medical_care": [
-      {%- for row in medical -%}
-      {
-        "@type": "dr:MedicalCare",
-        "type": {{ sentence(row.get('medical_care_type')) | tojson }},
-        "support_status": {{ sentence(row.get('support_status')) | tojson }},
-        "registration_date": {{ (row.get('registration_date') or '') | string | tojson }},
-        "last_updated": {{ (row.get('last_updated') or '') | string | tojson }}
-      }{% if not loop.last %},{% endif %}
-      {%- endfor -%}
-    ],
-    "housing_support": [
-      {%- for row in housing -%}
-      {
-        "@type": "dr:HousingSupport",
-        "type": {{ sentence(row.get('housing_support_type')) | tojson }},
-        "support_status": {{ sentence(row.get('support_status')) | tojson }},
-        "registration_date": {{ (row.get('registration_date') or '') | string | tojson }},
-        "last_updated": {{ (row.get('last_updated') or '') | string | tojson }}
-      }{% if not loop.last %},{% endif %}
-      {%- endfor -%}
-    ],
-    "animal_assistance": [
-      {%- for row in animal -%}
-      {
-        "@type": "dr:AnimalAssistance",
-        "type": {{ sentence(row.get('animal_assistance_type')) | tojson }},
-        "support_status": {{ sentence(row.get('support_status')) | tojson }},
-        "registration_date": {{ (row.get('registration_date') or '') | string | tojson }},
-        "last_updated": {{ (row.get('last_updated') or '') | string | tojson }}
-      }{% if not loop.last %},{% endif %}
-      {%- endfor -%}
-    ]
-  },
-  "transport_requirement": {{ sentence(p.get('transport_requirement')) | tojson }},
-  "housing_type": {{ sentence(p.get('housing_type')) | tojson }},
-  "related_person": [
-    {%- for row in relatives -%}
+  {# DO.DR.05 is 0..* on the person and holds ONE human_assistance (0..1) plus
+     lists of the other four. Element 0 carries the first human-assistance row and
+     every other support; each further human-assistance row becomes its own
+     element, so nothing is dropped and the cardinalities hold. #}
+  "disability_support": [
     {
-      "@type": "RelatedPerson",
-      "relationship_type": {{ relationship_cd(row.get('relationship_type')) | tojson }},
-      "related_member": {
-        "@type": "Member",
-        "member_identifier": [
-          {
-            "@type": "Identifier",
-            "identifier_type": "UIN",
-            "identifier_value": {{ (row.get('related_person_identifier') or '') | tojson }}
-          }
-        ],
-        "name": {{ (row.get('related_person_name') or '') | tojson }}
-      },
-      "is_primary_caregiver": {% if row.get('is_primary_caregiver') %}true{% else %}false{% endif %},
-      "is_legal_guardian": {% if row.get('is_legal_guardian') %}true{% else %}false{% endif %}
-    }{% if not loop.last %},{% endif %}
+      "@type": "dr:DisabilitySupport",
+      "human_assistance": {% if human %}{{ human_row(human[0]) }}{% else %}null{% endif %},
+      "assistive_technology": [
+        {%- for row in assistive -%}
+        {{ support_row(row, 'ASSISTIVE_TECHNOLOGY_TYPE', 'assistive_technology_type', 'dr:AssistiveTechnology') }}{% if not loop.last %},{% endif %}
+        {%- endfor -%}
+      ],
+      "housing_support": [
+        {%- for row in housing -%}
+        {{ support_row(row, 'HOUSING_SUPPORT_TYPE', 'housing_support_type', 'dr:HousingSupport') }}{% if not loop.last %},{% endif %}
+        {%- endfor -%}
+      ],
+      "medical_care": [
+        {%- for row in medical -%}
+        {{ support_row(row, 'MEDICAL_CARE_TYPE', 'medical_care_type', 'dr:MedicalCare') }}{% if not loop.last %},{% endif %}
+        {%- endfor -%}
+      ],
+      "animal_assistance": [
+        {%- for row in animal -%}
+        {{ support_row(row, 'ANIMAL_ASSISTANCE_TYPE', 'animal_assistance_type', 'dr:AnimalAssistance') }}{% if not loop.last %},{% endif %}
+        {%- endfor -%}
+      ],
+      "registration_date": {{ registered | tojson }},
+      "last_updated": {{ updated | tojson }}
+    }
+    {%- for row in human[1:] -%},
+    {
+      "@type": "dr:DisabilitySupport",
+      "human_assistance": {{ human_row(row) }},
+      "assistive_technology": [],
+      "housing_support": [],
+      "medical_care": [],
+      "animal_assistance": [],
+      "registration_date": {{ dt(row.get('registration_date')) | tojson }},
+      "last_updated": {{ dt(row.get('last_updated')) | tojson }}
+    }
     {%- endfor -%}
   ],
+  "transport_requirement": {{ cw('TRANSPORT_REQUIREMENT', p.get('transport_requirement')) | tojson }},
+  "housing_type": {{ cw('HOUSING_TYPE', p.get('housing_type')) | tojson }},
   "programs_enrolments": [
     {%- for row in programs -%}
     {
       "@type": "ProgramEnrolment",
       "program_name": {{ (row.get('program_name') or '') | tojson }},
       "program_identifier": {{ (row.get('program_identifier') or '') | tojson }},
-      "enrolment_status": {{ sentence(row.get('enrolment_status')) | tojson }},
-      "enrolment_start_date": {{ (row.get('enrolment_start_date') or '') | string | tojson }},
-      "enrolment_end_date": {{ (row.get('enrolment_end_date') or '') | string | tojson }}
+      "enrolment_status": {{ (row.get('enrolment_status') or '') | string | trim | lower | replace('_', ' ') | tojson }},
+      "enrolment_start_date": {{ dt(row.get('enrolment_start_date')) | tojson }},
+      "enrolment_end_date": {{ dt(row.get('enrolment_end_date')) | tojson }}
     }{% if not loop.last %},{% endif %}
     {%- endfor -%}
   ],
-  "marital_status": {{ (p.get('marital_status') or '') | string | trim | lower | replace('_', ' ') | tojson }},
-  "employment_status": {{ employment_cd(p.get('employment_status')) | tojson }},
-  "occupation": {{ (p.get('occupation') or '') | string | trim | lower | replace('_', ' ') | tojson }},
-  "income_level": {{ (p.get('income_level') or '') | string | trim | lower | replace('_', ' ') | tojson }},
-  "education_level": {{ (p.get('education_level') or '') | string | trim | lower | replace('_', ' ') | tojson }},
-  "language_code": {% if langs.items %}{{ langs.items | tojson }}{% else %}[]{% endif %},
-  "additional_attributes": [
-    {
-      "support_needs_level": {{ sentence(p.get('support_needs_level')) | tojson }},
-      "legal_capacity_status": {{ sentence(p.get('legal_capacity_status')) | tojson }},
-      "communication_needs": {% if comm_needs %}{{ comm_needs | tojson }}{% else %}[]{% endif %},
-      "assessment_date": {{ (p.get('assessment_date') or '') | string | tojson }},
-      "assessment_authority": {{ (p.get('assessment_authority') or '') | tojson }},
-      "certificate_expiry_date": {{ (p.get('certificate_expiry_date') or '') | string | tojson }},
-      "unmet_support_needs_count": {% if p.get('unmet_support_needs_count') is none %}null{% else %}{{ p.get('unmet_support_needs_count') }}{% endif %},
-      "registration_channel": {{ (p.get('registration_channel') or '') | string | trim | lower | replace('_', ' ') | tojson }}
-    }
-  ],
-  "registration_date": {{ (p.get('registration_date') or p.get('created_at') or '') | string | tojson }},
-  "last_updated": {{ (p.get('last_approved_at') or '') | string | tojson }}
+  "registration_date": {{ registered | tojson }},
+  "last_updated": {{ updated | tojson }}
 }

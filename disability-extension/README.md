@@ -45,7 +45,8 @@ src/openg2p_registry_disability_extension/
 │   └── id_generator/      functional-ID affixes
 ├── meta_data/             seed SQL: registers, UI, code lists, message rules
 ├── awe_meta_data/         approval-workflow seed SQL
-├── templates/             DCI Jinja templates (in and out)
+├── templates/             DCI Jinja templates (in and out; crosswalk tables GENERATED)
+├── partner_api/           API.DR.05-07 endpoints, attached to the partner API
 ├── score_compute/         the SUPPORT_NEED score
 └── ingestion_pipeline/    inbound payload enrichers
 ```
@@ -63,6 +64,14 @@ failures into build failures; run it after any change here.
 `meta_data/lookup-data/*_defaults.sql` are derived from `models/enums.py` by
 `./scripts/generate-code-lists.py`. Edit the enum, re-run the script. The same
 applies to `translation/domain.json` via `./scripts/generate-translations.py`.
+
+**The standard's vocabulary is generated too.** The tables that translate our
+enums to the SPDCI code directories live in `models/dci_crosswalk.py` and are
+written into both DCI templates by `./scripts/generate-dci-crosswalk.py`. Never
+edit the block between the `BEGIN/END GENERATED DCI CROSSWALK` markers by hand;
+`test/test_dci_crosswalk.py` round-trips every standard value and fails if a
+template is stale. Adding an enum member means adding its standard mapping here
+as well, or it is emitted as an empty string.
 
 ## Installation
 

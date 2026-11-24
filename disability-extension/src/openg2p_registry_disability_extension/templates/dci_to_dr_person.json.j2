@@ -1,5 +1,5 @@
 {# ===========================================================================
-   Inbound: SPDCI Disability Registry data objects -> PersonWithDisability.
+   Inbound: SPDCI DO.DR.03 PersonwithDisability -> PersonWithDisability.
 
    The OUTPUT keys are registry field names for the master register, plus one
    key per non-scalar SECTION MNEMONIC (see
@@ -8,280 +8,628 @@
    record arrives with blank tables — so the mnemonics below and that file must
    be changed together.
 
-   Values arrive as human wording ("Severe impairment or difficulty",
-   "Maintenance medicine") and must leave as ENUM members: the ORM rejects
-   anything else. Each macro therefore maps a permissive set of inbound spellings
-   onto exactly one enum value, and falls through to '' rather than guessing —
-   an empty optional field is recoverable, a wrong one is not.
+   Shape accepted: the standard's layout, with the DO.DR.02 Member block under
+   `personal_details`, AND the flat layout this registry used to emit (member
+   fields at the root). `disability_support` may be one object or a list of
+   objects; `human_assistance` inside it one object or a list.
+
+   Code lists: inbound text is translated through the DCI_IN tables in the
+   generated block below (source: register_domain/models/dci_crosswalk.py, keep
+   in step with ./scripts/generate-dci-crosswalk.py). The lookup key is the
+   normalised text (`norm` macro — identical to dci_crosswalk.normalise), so the
+   standard's labels ("Received, but not enough"), its numeric codes ("2") and
+   this registry's enum names all resolve. Anything unknown becomes the list's
+   fallback (OTHER / UNKNOWN) or '' — never a guess.
    =========================================================================== #}
-{%- macro norm(v) -%}{{ (v or '') | string | trim | upper | replace('-', '_') | replace(' ', '_') }}{%- endmacro -%}
-{%- macro gender_enum(sex) -%}
-{%- set s = norm(sex) -%}
-{%- if s in ['MALE', 'M'] -%}MALE
-{%- elif s in ['FEMALE', 'F'] -%}FEMALE
-{%- elif s in ['OTHER', 'OTHERS'] -%}OTHERS
-{%- else -%}UNKNOWN
+{# BEGIN GENERATED DCI CROSSWALK — ./scripts/generate-dci-crosswalk.py #}
+{%- set DCI_IN = {
+  "AGE_ONSET": {
+    "0": "AT_BIRTH",
+    "1": "CHILDHOOD_6_12",
+    "2": "ADULTHOOD_18_59",
+    "3": "OLD_AGE_60_PLUS",
+    "ADOLESCENCE_13_17": "ADOLESCENCE_13_17",
+    "ADULT": "ADULTHOOD_18_59",
+    "ADULTHOOD": "ADULTHOOD_18_59",
+    "ADULTHOOD_18_59": "ADULTHOOD_18_59",
+    "AT_BIRTH": "AT_BIRTH",
+    "BIRTH": "AT_BIRTH",
+    "BORN_WITH": "AT_BIRTH",
+    "CHILD": "CHILDHOOD_6_12",
+    "CHILDHOOD": "CHILDHOOD_6_12",
+    "CHILDHOOD_6_12": "CHILDHOOD_6_12",
+    "CONGENITAL": "AT_BIRTH",
+    "EARLY_CHILDHOOD_0_5": "EARLY_CHILDHOOD_0_5",
+    "ELDERLY": "OLD_AGE_60_PLUS",
+    "OLD_AGE": "OLD_AGE_60_PLUS",
+    "OLD_AGE_60_PLUS": "OLD_AGE_60_PLUS",
+    "SINCE_BIRTH": "AT_BIRTH",
+    "UNKNOWN": "UNKNOWN",
+    "WORKING_AGE": "ADULTHOOD_18_59"
+  },
+  "ANIMAL_ASSISTANCE_TYPE": {
+    "1": "GUIDE_DOG",
+    "2": "THERAPY_ANIMAL",
+    "3": "OTHER",
+    "ALERT_DOG": "ALERT_DOG",
+    "GUIDE_DOG": "GUIDE_DOG",
+    "HEARING_DOG": "HEARING_DOG",
+    "MOBILITY_ASSISTANCE_DOG": "MOBILITY_ASSISTANCE_DOG",
+    "OTHER": "OTHER",
+    "PSYCHIATRIC_SERVICE_DOG": "PSYCHIATRIC_SERVICE_DOG",
+    "SEIZURE_RESPONSE_DOG": "SEIZURE_RESPONSE_DOG",
+    "SERVICE_DOG": "GUIDE_DOG",
+    "SERVICE_DOG_GUIDE_SIGNAL": "GUIDE_DOG",
+    "SIGNAL_DOG": "HEARING_DOG",
+    "THERAPY_ANIMAL": "THERAPY_ANIMAL"
+  },
+  "ASSISTIVE_TECHNOLOGY_TYPE": {
+    "11": "CRUTCHES",
+    "3": "BRAILLE_DEVICES",
+    "5": "CANES",
+    "8": "ORTHOSES",
+    "9": "COMMUNICATION_BOARDS",
+    "BRACE": "ORTHOSES",
+    "BRAILLE": "BRAILLE_DEVICES",
+    "BRAILLERS": "BRAILLE_DEVICES",
+    "BRAILLE_DEVICES": "BRAILLE_DEVICES",
+    "BRAILLE_DISPLAYS_NOTE_TAKERS": "BRAILLE_DEVICES",
+    "BRAILLE_WRITING_EQUIPMENTBRAILLERS": "BRAILLE_DEVICES",
+    "CANE": "CANES",
+    "CANES": "CANES",
+    "CANE_STICK": "CANES",
+    "CLUB_FOOT_BRACE": "ORTHOSES",
+    "COCHLEAR": "COCHLEAR_IMPLANTS",
+    "COCHLEAR_IMPLANTS": "COCHLEAR_IMPLANTS",
+    "COMMUNICATION_BOARD": "COMMUNICATION_BOARDS",
+    "COMMUNICATION_BOARDS": "COMMUNICATION_BOARDS",
+    "COMMUNICATION_BOARDS_BOOKS_CARDS": "COMMUNICATION_BOARDS",
+    "COMMUNICATION_SOFTWARE": "SPEECH_GENERATING_DEVICES",
+    "CRUTCH": "CRUTCHES",
+    "CRUTCHES": "CRUTCHES",
+    "CRUTCHES_AUXILIARY_ELBOW": "CRUTCHES",
+    "CUSHION": "PRESSURE_RELIEF_CUSHIONS",
+    "CUSHIONS": "PRESSURE_RELIEF_CUSHIONS",
+    "DEAF_BLIND_COMMUNICATORS": "SPEECH_GENERATING_DEVICES",
+    "ELECTRIC_WHEELCHAIR": "ELECTRIC_WHEELCHAIR",
+    "EYEGLASSES": "SPECTACLES",
+    "FOOTWEAR": "THERAPEUTIC_FOOTWEAR",
+    "GLASSES": "SPECTACLES",
+    "HEARING_AID": "HEARING_AIDS",
+    "HEARING_AIDS": "HEARING_AIDS",
+    "HEARING_AIDS_DIGITAL_AND_BATTERIES": "HEARING_AIDS",
+    "INCONTINENCE": "INCONTINENCE_PRODUCTS",
+    "INCONTINENCE_PRODUCTS": "INCONTINENCE_PRODUCTS",
+    "INCONTINENCE_PRODUCTS_ABSORBENT": "INCONTINENCE_PRODUCTS",
+    "MAGNIFIER": "MAGNIFIERS",
+    "MAGNIFIERS": "MAGNIFIERS",
+    "MAGNIFIERS_OPTICAL": "MAGNIFIERS",
+    "MANUAL_WHEELCHAIR": "MANUAL_WHEELCHAIR",
+    "ORTHOSES": "ORTHOSES",
+    "ORTHOSIS": "ORTHOSES",
+    "OTHER": "OTHER",
+    "POWERED_WHEELCHAIR": "ELECTRIC_WHEELCHAIR",
+    "PRESSURE_RELIEF_CUSHIONS": "PRESSURE_RELIEF_CUSHIONS",
+    "PROSTHESES": "PROSTHESES",
+    "PROSTHESES_LOWER_LIMB": "PROSTHESES",
+    "PROSTHESIS": "PROSTHESES",
+    "ROLLATOR": "WALKING_FRAMES",
+    "SCREEN_READER": "SCREEN_READERS",
+    "SCREEN_READERS": "SCREEN_READERS",
+    "SPECTACLES": "SPECTACLES",
+    "SPEECH_DEVICES": "SPEECH_GENERATING_DEVICES",
+    "SPEECH_GENERATING_DEVICE": "SPEECH_GENERATING_DEVICES",
+    "SPEECH_GENERATING_DEVICES": "SPEECH_GENERATING_DEVICES",
+    "STICK": "CANES",
+    "THERAPEUTIC_FOOTWEAR": "THERAPEUTIC_FOOTWEAR",
+    "WALKER": "WALKING_FRAMES",
+    "WALKING_FRAME": "WALKING_FRAMES",
+    "WALKING_FRAMES": "WALKING_FRAMES",
+    "WALKING_FRAMES_WALKERS": "WALKING_FRAMES",
+    "WHEELCHAIR": "MANUAL_WHEELCHAIR",
+    "WHEELCHAIRS_ELECTRICALLY_POWERED": "ELECTRIC_WHEELCHAIR",
+    "WHEELCHAIRS_MANUAL": "MANUAL_WHEELCHAIR",
+    "WHEELCHAIR_ELECTRIC": "ELECTRIC_WHEELCHAIR",
+    "WHEELCHAIR_MANUAL": "MANUAL_WHEELCHAIR",
+    "WHITE_CANE": "CANES"
+  },
+  "CAREGIVER_RELATIONSHIP": {
+    "BRO": "SIBLING",
+    "CHILD": "CHILD",
+    "COMMUNITY_VOLUNTEER": "COMMUNITY_VOLUNTEER",
+    "DAU": "CHILD",
+    "EXT": "OTHER_RELATIVE",
+    "FAMMEMB": "OTHER_RELATIVE",
+    "FRIEND": "FRIEND",
+    "FTH": "PARENT",
+    "GRNDCHILD": "OTHER_RELATIVE",
+    "GRPRN": "OTHER_RELATIVE",
+    "HUSB": "SPOUSE",
+    "INSTITUTION": "INSTITUTION",
+    "MTH": "PARENT",
+    "NEIGHBOR": "NEIGHBOUR",
+    "NEIGHBOUR": "NEIGHBOUR",
+    "OTHER": "OTHER",
+    "OTHER_RELATIVE": "OTHER_RELATIVE",
+    "PAID": "PAID_CAREGIVER",
+    "PAID_CAREGIVER": "PAID_CAREGIVER",
+    "PARENT": "PARENT",
+    "PRN": "PARENT",
+    "PROFESSIONAL": "PAID_CAREGIVER",
+    "RELATIVE": "OTHER_RELATIVE",
+    "SIB": "SIBLING",
+    "SIBLING": "SIBLING",
+    "SIGOTHR": "FRIEND",
+    "SIS": "SIBLING",
+    "SON": "CHILD",
+    "SPOUSE": "SPOUSE",
+    "SPS": "SPOUSE",
+    "VOLUNTEER": "COMMUNITY_VOLUNTEER",
+    "WIFE": "SPOUSE"
+  },
+  "DISABILITY_STATUS": {
+    "1": "ASSESSED_DISABLED",
+    "2": "PENDING_ASSESSMENT",
+    "3": "EXPIRED",
+    "ACTIVE": "ASSESSED_DISABLED",
+    "APPROVED": "ASSESSED_DISABLED",
+    "ASSESSED_DISABLED": "ASSESSED_DISABLED",
+    "ASSESSED_NOT_DISABLED": "ASSESSED_NOT_DISABLED",
+    "DISABLED": "ASSESSED_DISABLED",
+    "EXPIRED": "EXPIRED",
+    "FALSE": "ASSESSED_NOT_DISABLED",
+    "LAPSED": "EXPIRED",
+    "NO": "ASSESSED_NOT_DISABLED",
+    "NOT_DISABLED": "ASSESSED_NOT_DISABLED",
+    "PENDING": "PENDING_ASSESSMENT",
+    "PENDING_APPROVAL": "PENDING_ASSESSMENT",
+    "PENDING_ASSESSMENT": "PENDING_ASSESSMENT",
+    "REJECTED": "ASSESSED_NOT_DISABLED",
+    "SELF_DECLARED": "SELF_DECLARED",
+    "TRUE": "ASSESSED_DISABLED",
+    "UNDER_REVIEW": "PENDING_ASSESSMENT",
+    "UNKNOWN": "UNKNOWN",
+    "VALID": "ASSESSED_DISABLED",
+    "YES": "ASSESSED_DISABLED"
+  },
+  "DISABILITY_STATUS_LEVEL": {
+    "1": "PROFOUND",
+    "2": "SEVERE",
+    "3": "MODERATE",
+    "4": "MILD",
+    "HIGH_SUPPORT_NEEDS": "PROFOUND",
+    "MILD": "MILD",
+    "MODERATE": "MODERATE",
+    "NONE": "NONE",
+    "PROFOUND": "PROFOUND",
+    "SEVERE": "SEVERE",
+    "VERY_SEVERE": "PROFOUND"
+  },
+  "HOUSING_SUPPORT_TYPE": {
+    "1": "HOME_ADAPTATION",
+    "2": "RELOCATION",
+    "3": "UTILITY_COST_SUPPORT",
+    "ACCESSIBLE_SOCIAL_HOUSING": "ACCESSIBLE_SOCIAL_HOUSING",
+    "ASSISTED_LIVING_FACILITY": "ASSISTED_LIVING_FACILITY",
+    "BATHROOM_MODIFICATION": "BATHROOM_MODIFICATION",
+    "DOOR_WIDENING": "DOOR_WIDENING",
+    "GRAB_RAILS": "HANDRAILS",
+    "GROUND_FLOOR_ALLOCATION": "GROUND_FLOOR_ALLOCATION",
+    "HANDRAILS": "HANDRAILS",
+    "HOME_ADAPTATION": "HOME_ADAPTATION",
+    "HOME_REPAIR": "HOME_REPAIR",
+    "OTHER": "OTHER",
+    "RAMP": "RAMP_INSTALLATION",
+    "RAMP_INSTALLATION": "RAMP_INSTALLATION",
+    "REHOUSING": "RELOCATION",
+    "RELOCATE": "RELOCATION",
+    "RELOCATION": "RELOCATION",
+    "RELOCATION_TO_ACCESSIBLE_HOUSING_AS_HOME_ADAPTATION_NOT_FEASIBLE": "RELOCATION",
+    "RENT_SUBSIDY": "RENT_SUBSIDY",
+    "RESIDENTIAL_CARE": "RESIDENTIAL_CARE",
+    "SIGNIFICANT_UTILITY_COSTS": "UTILITY_COST_SUPPORT",
+    "UTILITIES": "UTILITY_COST_SUPPORT",
+    "UTILITY_COSTS": "UTILITY_COST_SUPPORT",
+    "UTILITY_COST_SUPPORT": "UTILITY_COST_SUPPORT"
+  },
+  "HOUSING_TYPE": {
+    "1": "INDEPENDENT_HOME",
+    "2": "FAMILY_HOME",
+    "3": "SOCIAL_HOUSING",
+    "4": "RESIDENTIAL_INSTITUTION",
+    "CARE_HOME": "RESIDENTIAL_INSTITUTION",
+    "CARE_INSTITUTION": "RESIDENTIAL_INSTITUTION",
+    "FAMILY": "FAMILY_HOME",
+    "FAMILY_HOME": "FAMILY_HOME",
+    "GROUP_HOME": "GROUP_HOME",
+    "HOMELESS": "HOMELESS",
+    "HOSPITAL": "HOSPITAL_LONG_STAY",
+    "HOSPITAL_LONG_STAY": "HOSPITAL_LONG_STAY",
+    "INDEPENDENT": "INDEPENDENT_HOME",
+    "INDEPENDENT_HOME": "INDEPENDENT_HOME",
+    "INSTITUTION": "RESIDENTIAL_INSTITUTION",
+    "LIVING_IN_RELATIVES_HOME": "FAMILY_HOME",
+    "OTHER": "OTHER",
+    "OWN_HOME": "INDEPENDENT_HOME",
+    "OWN_HOME_RENT": "INDEPENDENT_HOME",
+    "RELATIVES_HOME": "FAMILY_HOME",
+    "RENT": "INDEPENDENT_HOME",
+    "RENTED": "INDEPENDENT_HOME",
+    "RESIDENTIAL_INSTITUTION": "RESIDENTIAL_INSTITUTION",
+    "SHELTER": "TEMPORARY_SHELTER",
+    "SOCIAL_HOUSING": "SOCIAL_HOUSING",
+    "STREET": "HOMELESS",
+    "SUPPORTED_LIVING": "SUPPORTED_LIVING",
+    "TEMPORARY_SHELTER": "TEMPORARY_SHELTER",
+    "WITH_RELATIVES": "FAMILY_HOME"
+  },
+  "HUMAN_ASSISTANCE_TYPE": {
+    "BASIC_ACTIVITY": "PERSONAL_CARE",
+    "BASIC_DAILY_LIVING": "PERSONAL_CARE",
+    "COMMUNICATION": "COMMUNICATION",
+    "DECISION_MAKING": "DECISION_MAKING_SUPPORT",
+    "DECISION_MAKING_SUPPORT": "DECISION_MAKING_SUPPORT",
+    "DOMESTIC": "DOMESTIC_SUPPORT",
+    "DOMESTIC_SUPPORT": "DOMESTIC_SUPPORT",
+    "EDUCATION": "EDUCATIONAL_SUPPORT",
+    "EDUCATIONAL_SUPPORT": "EDUCATIONAL_SUPPORT",
+    "EMPLOYMENT": "EMPLOYMENT_SUPPORT",
+    "EMPLOYMENT_SUPPORT": "EMPLOYMENT_SUPPORT",
+    "FINANCIAL": "FINANCIAL_MANAGEMENT",
+    "FINANCIAL_MANAGEMENT": "FINANCIAL_MANAGEMENT",
+    "HOUSEHOLD": "DOMESTIC_SUPPORT",
+    "INTERPRETATION": "SIGN_LANGUAGE_INTERPRETATION",
+    "MEDICAL": "MEDICAL_SUPPORT",
+    "MEDICAL_SUPPORT": "MEDICAL_SUPPORT",
+    "MOBILITY": "MOBILITY",
+    "MULTIPLE": "MULTIPLE",
+    "NURSING": "MEDICAL_SUPPORT",
+    "OTHER": "OTHER",
+    "PERSONAL_CARE": "PERSONAL_CARE",
+    "SIGN_LANGUAGE": "SIGN_LANGUAGE_INTERPRETATION",
+    "SIGN_LANGUAGE_INTERPRETATION": "SIGN_LANGUAGE_INTERPRETATION",
+    "SUPERVISION": "SUPERVISION",
+    "SUPPORTED_DECISION_MAKING": "DECISION_MAKING_SUPPORT"
+  },
+  "IMPAIRMENT_CAUSE": {
+    "0": "CONGENITAL",
+    "1": "MEDICAL_COMPLICATION",
+    "2": "ILLNESS",
+    "3": "OTHER_ACCIDENT",
+    "4": "ROAD_ACCIDENT",
+    "5": "WORK_ACCIDENT",
+    "6": "CONFLICT_VIOLENCE",
+    "7": "CONFLICT_VIOLENCE",
+    "8": "AGEING",
+    "ACCIDENT": "OTHER_ACCIDENT",
+    "AGEING": "AGEING",
+    "AGING": "AGEING",
+    "ARMED_CONFLICT": "CONFLICT_VIOLENCE",
+    "BIRTH": "CONGENITAL",
+    "BIRTH_COMPLICATION": "MEDICAL_COMPLICATION",
+    "BIRTH_CONGENITAL": "CONGENITAL",
+    "BIRTH_DEFECT": "CONGENITAL",
+    "CONFLICT": "CONFLICT_VIOLENCE",
+    "CONFLICT_VIOLENCE": "CONFLICT_VIOLENCE",
+    "CONGENITAL": "CONGENITAL",
+    "DISASTER": "NATURAL_DISASTER",
+    "DISEASE": "ILLNESS",
+    "DOMESTIC_ACCIDENT": "OTHER_ACCIDENT",
+    "ILLNESS": "ILLNESS",
+    "MEDICAL_COMPLICATION": "MEDICAL_COMPLICATION",
+    "NATURAL_DISASTER": "NATURAL_DISASTER",
+    "OCCUPATIONAL_ACCIDENT": "WORK_ACCIDENT",
+    "OLD_AGE": "AGEING",
+    "OTHER": "OTHER",
+    "OTHER_ACCIDENT": "OTHER_ACCIDENT",
+    "ROAD_ACCIDENT": "ROAD_ACCIDENT",
+    "SICKNESS": "ILLNESS",
+    "TRAFFIC_ACCIDENT": "ROAD_ACCIDENT",
+    "UNKNOWN": "UNKNOWN",
+    "VIOLENCE": "CONFLICT_VIOLENCE",
+    "WAR": "CONFLICT_VIOLENCE",
+    "WORK_ACCIDENT": "WORK_ACCIDENT"
+  },
+  "IMPAIRMENT_LEVEL": {
+    "1": "NO_DIFFICULTY",
+    "2": "SOME_DIFFICULTY",
+    "3": "SOME_DIFFICULTY",
+    "4": "A_LOT_OF_DIFFICULTY",
+    "5": "CANNOT_DO_AT_ALL",
+    "A_LOT": "A_LOT_OF_DIFFICULTY",
+    "A_LOT_OF_DIFFICULTY": "A_LOT_OF_DIFFICULTY",
+    "CANNOT": "CANNOT_DO_AT_ALL",
+    "CANNOT_DO_AT_ALL": "CANNOT_DO_AT_ALL",
+    "COMPLETE": "CANNOT_DO_AT_ALL",
+    "COMPLETE_IMPAIRMENT_OR_DIFFICULTY": "CANNOT_DO_AT_ALL",
+    "MILD": "SOME_DIFFICULTY",
+    "MILD_IMPAIRMENT_OR_DIFFICULTY": "SOME_DIFFICULTY",
+    "MODERATE": "SOME_DIFFICULTY",
+    "MODERATE_IMPAIRMENT_OR_DIFFICULTY": "SOME_DIFFICULTY",
+    "NO": "NO_DIFFICULTY",
+    "NONE": "NO_DIFFICULTY",
+    "NO_DIFFICULTY": "NO_DIFFICULTY",
+    "NO_IMPAIRMENT_OR_DIFFICULTY": "NO_DIFFICULTY",
+    "PROFOUND": "CANNOT_DO_AT_ALL",
+    "SEVERE": "A_LOT_OF_DIFFICULTY",
+    "SEVERE_IMPAIRMENT_OR_DIFFICULTY": "A_LOT_OF_DIFFICULTY",
+    "SOME": "SOME_DIFFICULTY",
+    "SOME_DIFFICULTY": "SOME_DIFFICULTY",
+    "UNABLE": "CANNOT_DO_AT_ALL"
+  },
+  "IMPAIRMENT_TYPE": {
+    "1": "VISUAL",
+    "2": "HEARING",
+    "3": "SPEECH_LANGUAGE",
+    "4": "PHYSICAL_MOBILITY",
+    "5": "INTELLECTUAL",
+    "6": "PSYCHOSOCIAL",
+    "7": "CHRONIC_ILLNESS",
+    "8": "MULTIPLE",
+    "BLIND": "VISUAL",
+    "CHRONIC": "CHRONIC_ILLNESS",
+    "CHRONIC_ILLNESS": "CHRONIC_ILLNESS",
+    "COGNITION": "INTELLECTUAL",
+    "COGNITIVE": "INTELLECTUAL",
+    "COMMUNICATION": "SPEECH_LANGUAGE",
+    "DEAF": "HEARING",
+    "DEAFBLIND": "DEAFBLIND",
+    "DEAF_BLIND": "DEAFBLIND",
+    "HEARING": "HEARING",
+    "INTELLECTUAL": "INTELLECTUAL",
+    "INTERPERSONAL_INTERACTION_AND_RELATIONSHIP": "PSYCHOSOCIAL",
+    "LANGUAGE": "SPEECH_LANGUAGE",
+    "LEARNING": "LEARNING",
+    "LOCOMOTOR": "PHYSICAL_MOBILITY",
+    "MENTAL": "PSYCHOSOCIAL",
+    "MENTAL_HEALTH": "PSYCHOSOCIAL",
+    "MENTAL_PSYCHO_SOCIAL": "PSYCHOSOCIAL",
+    "MOBILITY": "PHYSICAL_MOBILITY",
+    "MULTIPLE": "MULTIPLE",
+    "NEUROLOGICAL": "NEUROLOGICAL",
+    "OPT2_3": "SPEECH_LANGUAGE",
+    "OPT2_4": "PHYSICAL_MOBILITY",
+    "OPT2_5": "INTELLECTUAL",
+    "OPT2_6": "PSYCHOSOCIAL",
+    "OPT2_7": "SELF_CARE",
+    "OPT2_8": "OTHER",
+    "OTHER": "OTHER",
+    "OTHERS": "OTHER",
+    "OTHERS_SKIN_CARDIOVASCULAR_RESPIRATORY_DIGESTIVE_SYSTEMS": "CHRONIC_ILLNESS",
+    "PHYSICAL": "PHYSICAL_MOBILITY",
+    "PHYSICAL_AND_MOVEMENT_RELATED_FUNCTIONS": "PHYSICAL_MOBILITY",
+    "PHYSICAL_MOBILITY": "PHYSICAL_MOBILITY",
+    "PSYCHOSOCIAL": "PSYCHOSOCIAL",
+    "SEEING": "VISUAL",
+    "SELFCARE": "SELF_CARE",
+    "SELF_CARE": "SELF_CARE",
+    "SIGHT": "VISUAL",
+    "SPEECH": "SPEECH_LANGUAGE",
+    "SPEECH_LANGUAGE": "SPEECH_LANGUAGE",
+    "VISION": "VISUAL",
+    "VISUAL": "VISUAL",
+    "VOICE": "SPEECH_LANGUAGE",
+    "VOICE_AND_SPEECH": "SPEECH_LANGUAGE",
+    "WALKING": "PHYSICAL_MOBILITY"
+  },
+  "MEDICAL_CARE_TYPE": {
+    "1": "MAINTENANCE_MEDICINE",
+    "2": "REHABILITATION",
+    "3": "SPECIALISED_HEALTH_CARE",
+    "COUNSELLING": "PSYCHOLOGICAL_COUNSELLING",
+    "DIALYSIS": "DIALYSIS",
+    "DRUGS": "MAINTENANCE_MEDICINE",
+    "MAINTENANCE_MEDICINE": "MAINTENANCE_MEDICINE",
+    "MEDICATION": "MAINTENANCE_MEDICINE",
+    "MEDICINE": "MAINTENANCE_MEDICINE",
+    "NUTRITION_SUPPORT": "NUTRITION_SUPPORT",
+    "OCCUPATIONAL_THERAPY": "OCCUPATIONAL_THERAPY",
+    "OTHER": "OTHER",
+    "OXYGEN": "RESPIRATORY_SUPPORT",
+    "PHYSIO": "PHYSIOTHERAPY",
+    "PHYSIOTHERAPY": "PHYSIOTHERAPY",
+    "PSYCHIATRIC_CARE": "PSYCHIATRIC_CARE",
+    "PSYCHOLOGICAL_COUNSELLING": "PSYCHOLOGICAL_COUNSELLING",
+    "REGULAR_SPECIALIST_REVIEW": "REGULAR_SPECIALIST_REVIEW",
+    "REHABILITATION": "REHABILITATION",
+    "RESPIRATORY_SUPPORT": "RESPIRATORY_SUPPORT",
+    "SPECIALISED_HEALTH_CARE": "SPECIALISED_HEALTH_CARE",
+    "SPECIALIST_CARE": "SPECIALISED_HEALTH_CARE",
+    "SPECIALIZED_HEALTH_CARE": "SPECIALISED_HEALTH_CARE",
+    "SPEECH_THERAPY": "SPEECH_THERAPY",
+    "SURGERY": "SURGERY",
+    "WOUND_CARE": "WOUND_CARE"
+  },
+  "RELATIONSHIP": {
+    "ADOPTP": "PARENT",
+    "ASSOCIATE": "NON_RELATIVE",
+    "AUNT": "OTHER_RELATIVE",
+    "BRO": "SIBLING",
+    "BROTHER": "SIBLING",
+    "CHILD": "CHILD",
+    "CHLDADOPT": "CHILD",
+    "CHLDFOST": "CHILD",
+    "COUSN": "OTHER_RELATIVE",
+    "DAU": "CHILD",
+    "DAUC": "CHILD",
+    "DAUGHTER": "CHILD",
+    "DOMPART": "SPOUSE",
+    "EXT": "OTHER_RELATIVE",
+    "FAMMEMB": "OTHER_RELATIVE",
+    "FATHER": "PARENT",
+    "FRIEND": "NON_RELATIVE",
+    "FTH": "PARENT",
+    "GRANDCHILD": "GRANDCHILD",
+    "GRANDFATHER": "GRANDPARENT",
+    "GRANDMOTHER": "GRANDPARENT",
+    "GRANDPARENT": "GRANDPARENT",
+    "GRFTH": "GRANDPARENT",
+    "GRMTH": "GRANDPARENT",
+    "GRNDCHILD": "GRANDCHILD",
+    "GRNDDAU": "GRANDCHILD",
+    "GRNDSON": "GRANDCHILD",
+    "GRPRN": "GRANDPARENT",
+    "GUARDIAN": "GUARDIAN",
+    "HSIB": "SIBLING",
+    "HUSB": "SPOUSE",
+    "HUSBAND": "SPOUSE",
+    "INLAW": "OTHER_RELATIVE",
+    "MOTHER": "PARENT",
+    "MTH": "PARENT",
+    "NCHILD": "CHILD",
+    "NEIGHBOUR": "NON_RELATIVE",
+    "NIENEPH": "OTHER_RELATIVE",
+    "NON_RELATIVE": "NON_RELATIVE",
+    "NSIB": "SIBLING",
+    "OTHER_RELATIVE": "OTHER_RELATIVE",
+    "PARENT": "PARENT",
+    "PRN": "PARENT",
+    "RELATIVE": "OTHER_RELATIVE",
+    "SIB": "SIBLING",
+    "SIBLING": "SIBLING",
+    "SIGOTHR": "NON_RELATIVE",
+    "SIS": "SIBLING",
+    "SISTER": "SIBLING",
+    "SON": "CHILD",
+    "SONC": "CHILD",
+    "SPOUSE": "SPOUSE",
+    "SPS": "SPOUSE",
+    "STPCHLD": "CHILD",
+    "STPPRN": "PARENT",
+    "STPSIB": "SIBLING",
+    "UNCLE": "OTHER_RELATIVE",
+    "WIFE": "SPOUSE"
+  },
+  "SEX": {
+    "F": "FEMALE",
+    "FEMALE": "FEMALE",
+    "M": "MALE",
+    "MALE": "MALE",
+    "O": "OTHERS",
+    "OTHER": "OTHERS",
+    "OTHERS": "OTHERS",
+    "U": "UNKNOWN",
+    "UNKNOWN": "UNKNOWN"
+  },
+  "SUPPORT_FREQUENCY": {
+    "1": "PERMANENT",
+    "2": "DAILY",
+    "3": "WEEKLY",
+    "4": "OCCASIONAL",
+    "5": "NONE",
+    "AS_NEEDED": "AS_NEEDED",
+    "CONTINUOUS": "PERMANENT",
+    "DAILY": "DAILY",
+    "MONTHLY": "MONTHLY",
+    "NONE": "NONE",
+    "OCCASIONAL": "OCCASIONAL",
+    "ON_DEMAND": "AS_NEEDED",
+    "PERMANENT": "PERMANENT",
+    "TEMPORARY": "TEMPORARY",
+    "WEEKLY": "WEEKLY"
+  },
+  "SUPPORT_STATUS": {
+    "0": "REQUIRED",
+    "1": "RECEIVED",
+    "2": "PARTIALLY_RECEIVED",
+    "3": "NOT_REQUIRED",
+    "DISCONTINUED": "DISCONTINUED",
+    "INSUFFICIENT": "PARTIALLY_RECEIVED",
+    "NEED": "REQUIRED",
+    "NEEDED": "REQUIRED",
+    "NOT_ENOUGH": "PARTIALLY_RECEIVED",
+    "NOT_NEEDED": "NOT_REQUIRED",
+    "NOT_REQUIRED": "NOT_REQUIRED",
+    "PARTIAL": "PARTIALLY_RECEIVED",
+    "PARTIALLY_RECEIVED": "PARTIALLY_RECEIVED",
+    "RECEIVED": "RECEIVED",
+    "RECEIVED_BUT_NOT_ENOUGH": "PARTIALLY_RECEIVED",
+    "RECEIVING": "RECEIVING",
+    "REQUIRED": "REQUIRED",
+    "REQUIRES": "REQUIRED",
+    "STOPPED": "DISCONTINUED"
+  },
+  "TRANSPORT_REQUIREMENT": {
+    "1": "ACCESSIBLE_PUBLIC_TRANSPORT",
+    "2": "ESCORTED_TRAVEL",
+    "3": "ADAPTED_VEHICLE",
+    "ACCESSIBLE_PUBLIC_TRANSPORT": "ACCESSIBLE_PUBLIC_TRANSPORT",
+    "ADAPTED_VEHICLE": "ADAPTED_VEHICLE",
+    "ALLOWANCE": "TRANSPORT_ALLOWANCE",
+    "AMBULANCE": "AMBULANCE_TRANSPORT",
+    "AMBULANCE_TRANSPORT": "AMBULANCE_TRANSPORT",
+    "DOOR_TO_DOOR": "ESCORTED_TRAVEL",
+    "ESCORTED": "ESCORTED_TRAVEL",
+    "ESCORTED_TRAVEL": "ESCORTED_TRAVEL",
+    "NONE": "NONE",
+    "OTHER": "OTHER",
+    "POINT_TO_POINT": "ESCORTED_TRAVEL",
+    "POINT_TO_POINT_TRANSPORTATION": "ESCORTED_TRAVEL",
+    "PUBLIC": "ACCESSIBLE_PUBLIC_TRANSPORT",
+    "PUBLIC_TRANSPORT": "ACCESSIBLE_PUBLIC_TRANSPORT",
+    "PUBLIC_TRANSPORTATION": "ACCESSIBLE_PUBLIC_TRANSPORT",
+    "TRANSPORT_ALLOWANCE": "TRANSPORT_ALLOWANCE",
+    "WHEELCHAIR_ACCESSIBLE_VEHICLE": "WHEELCHAIR_ACCESSIBLE_VEHICLE"
+  }
+} -%}
+{%- set DCI_FALLBACK = {
+  "AGE_ONSET": "",
+  "ANIMAL_ASSISTANCE_TYPE": "OTHER",
+  "ASSISTIVE_TECHNOLOGY_TYPE": "OTHER",
+  "CAREGIVER_RELATIONSHIP": "OTHER",
+  "DISABILITY_STATUS": "UNKNOWN",
+  "DISABILITY_STATUS_LEVEL": "",
+  "HOUSING_SUPPORT_TYPE": "OTHER",
+  "HOUSING_TYPE": "OTHER",
+  "HUMAN_ASSISTANCE_TYPE": "OTHER",
+  "IMPAIRMENT_CAUSE": "OTHER",
+  "IMPAIRMENT_LEVEL": "",
+  "IMPAIRMENT_TYPE": "OTHER",
+  "MEDICAL_CARE_TYPE": "OTHER",
+  "RELATIONSHIP": "NON_RELATIVE",
+  "SEX": "UNKNOWN",
+  "SUPPORT_FREQUENCY": "",
+  "SUPPORT_STATUS": "",
+  "TRANSPORT_REQUIREMENT": "OTHER"
+} -%}
+{# END GENERATED DCI CROSSWALK #}
+{# Mirrors dci_crosswalk.normalise: upper case, separators to '_', punctuation
+   dropped. Jinja has no regex filter, so the punctuation the standard's labels
+   actually contain is listed; anything stranger simply fails to match and falls
+   back, which is the safe direction. #}
+{%- macro norm(v) -%}
+{{- (v if v is not none else '') | string | trim | upper | replace('-', '_') | replace(' ', '_') | replace('/', '_')
+    | replace(',', '') | replace('.', '') | replace('(', '') | replace(')', '') | replace("'", '') | replace('"', '')
+    | replace(':', '') | replace(';', '') | replace('&', '') | replace('+', '') | replace('*', '') | replace('!', '')
+    | replace('?', '') | replace('[', '') | replace(']', '') -}}
+{%- endmacro -%}
+{%- macro cw(list, v) -%}
+{%- set k = norm(v) -%}
+{%- if not k -%}
+{%- elif k in DCI_IN[list] -%}{{ DCI_IN[list][k] }}
+{%- else -%}{{ DCI_FALLBACK[list] }}
 {%- endif -%}
 {%- endmacro -%}
-{%- macro marital_enum(ms) -%}
-{%- set s = norm(ms) -%}
-{%- if s in ['SINGLE', 'MARRIED', 'DIVORCED', 'WIDOWED', 'SEPARATED', 'UNKNOWN'] -%}{{ s }}
-{%- else -%}UNKNOWN
+{# DF.COM.STRING.01 date_time -> registry date column (YYYY-MM-DD). #}
+{%- macro d(v) -%}
+{%- set s = (v | string | trim) if v is not none else '' -%}
+{{- s[:10] if s | length >= 10 else s -}}
+{%- endmacro -%}
+{# CD.DR.07 life stage (or a legacy integer age) -> age_onset_band. #}
+{%- macro onset_band(v) -%}
+{%- set s = (v | string | trim) if v is not none else '' -%}
+{%- if not s -%}
+{%- elif s.isdigit() and (s | int) > 3 -%}
+  {%- set a = s | int -%}
+  {%- if a == 0 -%}AT_BIRTH{%- elif a <= 5 -%}EARLY_CHILDHOOD_0_5{%- elif a <= 12 -%}CHILDHOOD_6_12{%- elif a <= 17 -%}ADOLESCENCE_13_17{%- elif a <= 59 -%}ADULTHOOD_18_59{%- else -%}OLD_AGE_60_PLUS{%- endif -%}
+{%- else -%}{{ cw('AGE_ONSET', s) }}
 {%- endif -%}
 {%- endmacro -%}
-{%- macro disability_status_enum(v) -%}
-{%- set s = norm(v) -%}
-{%- if s in ['ASSESSED_DISABLED', 'ASSESSED_NOT_DISABLED', 'PENDING_ASSESSMENT', 'SELF_DECLARED', 'UNKNOWN'] -%}{{ s }}
-{%- elif 'PENDING' in s -%}PENDING_ASSESSMENT
-{%- elif 'SELF' in s -%}SELF_DECLARED
-{%- elif s in ['YES', 'TRUE', 'DISABLED'] -%}ASSESSED_DISABLED
-{%- elif s in ['NO', 'FALSE', 'NOT_DISABLED'] -%}ASSESSED_NOT_DISABLED
-{%- elif s -%}UNKNOWN
-{%- endif -%}
-{%- endmacro -%}
-{%- macro status_level_enum(v) -%}
-{%- set s = norm(v) -%}
-{%- if s in ['NONE', 'MILD', 'MODERATE', 'SEVERE', 'PROFOUND'] -%}{{ s }}
-{%- elif 'PROFOUND' in s or 'COMPLETE' in s or 'TOTAL' in s -%}PROFOUND
-{%- elif 'SEVERE' in s -%}SEVERE
-{%- elif 'MODERATE' in s -%}MODERATE
-{%- elif 'MILD' in s -%}MILD
-{%- endif -%}
-{%- endmacro -%}
-{%- macro impairment_type_enum(v) -%}
-{%- set s = norm(v) -%}
-{%- if 'DEAFBLIND' in s -%}DEAFBLIND
-{%- elif 'VISUAL' in s or 'VISION' in s or 'SEEING' in s or 'BLIND' in s -%}VISUAL
-{%- elif 'HEARING' in s or 'DEAF' in s -%}HEARING
-{%- elif 'SPEECH' in s or 'LANGUAGE' in s -%}SPEECH_LANGUAGE
-{%- elif 'INTELLECTUAL' in s -%}INTELLECTUAL
-{%- elif 'PSYCHOSOCIAL' in s or 'MENTAL' in s -%}PSYCHOSOCIAL
-{%- elif 'NEURO' in s -%}NEUROLOGICAL
-{%- elif 'LEARNING' in s -%}LEARNING
-{%- elif 'CHRONIC' in s -%}CHRONIC_ILLNESS
-{%- elif 'MULTIPLE' in s -%}MULTIPLE
-{%- elif 'PHYSICAL' in s or 'MOBILITY' in s or 'WALK' in s or 'CLIMB' in s -%}PHYSICAL_MOBILITY
-{%- elif s -%}OTHER
-{%- endif -%}
-{%- endmacro -%}
-{# The four Washington Group points, accepting both the raw scale and the
-   "... impairment or difficulty" wording the outbound template emits. #}
-{%- macro impairment_level_enum(v) -%}
-{%- set s = norm(v) -%}
-{%- if s in ['NO_DIFFICULTY', 'SOME_DIFFICULTY', 'A_LOT_OF_DIFFICULTY', 'CANNOT_DO_AT_ALL'] -%}{{ s }}
-{%- elif s.startswith('NO_') or s == 'NONE' -%}NO_DIFFICULTY
-{%- elif 'COMPLETE' in s or 'UNABLE' in s or 'CANNOT' in s or 'PROFOUND' in s -%}CANNOT_DO_AT_ALL
-{%- elif 'SEVERE' in s or 'A_LOT' in s -%}A_LOT_OF_DIFFICULTY
-{%- elif 'MILD' in s or 'SOME' in s or 'MODERATE' in s -%}SOME_DIFFICULTY
-{%- endif -%}
-{%- endmacro -%}
-{%- macro impairment_cause_enum(v) -%}
-{%- set s = norm(v) -%}
-{%- if s in ['CONGENITAL', 'ILLNESS', 'WORK_ACCIDENT', 'ROAD_ACCIDENT', 'OTHER_ACCIDENT', 'CONFLICT_VIOLENCE', 'NATURAL_DISASTER', 'AGEING', 'MEDICAL_COMPLICATION', 'UNKNOWN', 'OTHER'] -%}{{ s }}
-{%- elif 'BIRTH' in s or 'CONGENITAL' in s -%}CONGENITAL
-{%- elif 'WORK' in s or 'OCCUPATIONAL' in s -%}WORK_ACCIDENT
-{%- elif 'ROAD' in s or 'TRAFFIC' in s -%}ROAD_ACCIDENT
-{%- elif 'ACCIDENT' in s -%}OTHER_ACCIDENT
-{%- elif 'CONFLICT' in s or 'VIOLENCE' in s or 'WAR' in s -%}CONFLICT_VIOLENCE
-{%- elif 'DISASTER' in s -%}NATURAL_DISASTER
-{%- elif 'AGE' in s -%}AGEING
-{%- elif 'DISEASE' in s or 'ILLNESS' in s -%}ILLNESS
-{%- elif 'MEDICAL' in s -%}MEDICAL_COMPLICATION
-{%- elif s -%}OTHER
-{%- endif -%}
-{%- endmacro -%}
-{%- macro support_status_enum(v) -%}
-{%- set s = norm(v) -%}
-{%- if s in ['REQUIRED', 'RECEIVING', 'RECEIVED', 'PARTIALLY_RECEIVED', 'NOT_REQUIRED', 'DISCONTINUED'] -%}{{ s }}
-{%- elif 'NOT_REQUIRED' in s or 'NOT_NEEDED' in s -%}NOT_REQUIRED
-{%- elif 'PARTIAL' in s -%}PARTIALLY_RECEIVED
-{%- elif 'DISCONTINU' in s or 'STOPPED' in s -%}DISCONTINUED
-{%- elif 'RECEIVING' in s -%}RECEIVING
-{%- elif 'RECEIVED' in s -%}RECEIVED
-{%- elif 'REQUIR' in s or 'NEED' in s -%}REQUIRED
-{%- endif -%}
-{%- endmacro -%}
-{%- macro frequency_enum(v) -%}
-{%- set s = norm(v) -%}
-{%- if s in ['PERMANENT', 'DAILY', 'WEEKLY', 'MONTHLY', 'OCCASIONAL', 'AS_NEEDED', 'TEMPORARY'] -%}{{ s }}
-{%- elif 'PERMANENT' in s or 'CONTINUOUS' in s -%}PERMANENT
-{%- elif 'DAILY' in s -%}DAILY
-{%- elif 'WEEK' in s -%}WEEKLY
-{%- elif 'MONTH' in s -%}MONTHLY
-{%- elif 'NEED' in s or 'DEMAND' in s -%}AS_NEEDED
-{%- elif 'TEMPORARY' in s -%}TEMPORARY
-{%- elif s -%}OCCASIONAL
-{%- endif -%}
-{%- endmacro -%}
-{%- macro human_assistance_enum(v) -%}
-{%- set s = norm(v) -%}
-{%- if s in ['PERSONAL_CARE', 'MOBILITY', 'COMMUNICATION', 'SIGN_LANGUAGE_INTERPRETATION', 'DOMESTIC_SUPPORT', 'MEDICAL_SUPPORT', 'EDUCATIONAL_SUPPORT', 'EMPLOYMENT_SUPPORT', 'FINANCIAL_MANAGEMENT', 'SUPERVISION', 'OTHER'] -%}{{ s }}
-{%- elif 'SIGN' in s or 'INTERPRET' in s -%}SIGN_LANGUAGE_INTERPRETATION
-{%- elif 'MOBILITY' in s or 'MOVE' in s -%}MOBILITY
-{%- elif 'PERSONAL' in s or 'CARE' in s -%}PERSONAL_CARE
-{%- elif 'DOMESTIC' in s or 'HOUSEHOLD' in s -%}DOMESTIC_SUPPORT
-{%- elif 'MEDICAL' in s or 'NURS' in s -%}MEDICAL_SUPPORT
-{%- elif 'EDUCATION' in s or 'SCHOOL' in s -%}EDUCATIONAL_SUPPORT
-{%- elif 'EMPLOY' in s or 'WORK' in s -%}EMPLOYMENT_SUPPORT
-{%- elif 'FINANC' in s or 'MONEY' in s -%}FINANCIAL_MANAGEMENT
-{%- elif 'SUPERVIS' in s -%}SUPERVISION
-{%- elif 'COMMUNICAT' in s -%}COMMUNICATION
-{%- elif s -%}OTHER
-{%- endif -%}
-{%- endmacro -%}
-{%- macro assistive_tech_enum(v) -%}
-{%- set s = norm(v) -%}
-{%- if s in ['CANES', 'CRUTCHES', 'WALKING_FRAMES', 'MANUAL_WHEELCHAIR', 'ELECTRIC_WHEELCHAIR', 'PROSTHESES', 'ORTHOSES', 'THERAPEUTIC_FOOTWEAR', 'HEARING_AIDS', 'COCHLEAR_IMPLANTS', 'SPECTACLES', 'MAGNIFIERS', 'BRAILLE_DEVICES', 'SCREEN_READERS', 'COMMUNICATION_BOARDS', 'SPEECH_GENERATING_DEVICES', 'PRESSURE_RELIEF_CUSHIONS', 'INCONTINENCE_PRODUCTS', 'OTHER'] -%}{{ s }}
-{%- elif 'CANE' in s or 'WHITE_STICK' in s -%}CANES
-{%- elif 'CRUTCH' in s -%}CRUTCHES
-{%- elif 'WALKER' in s or 'WALKING_FRAME' in s -%}WALKING_FRAMES
-{%- elif 'ELECTRIC_WHEELCHAIR' in s or 'POWERED_WHEELCHAIR' in s -%}ELECTRIC_WHEELCHAIR
-{%- elif 'WHEELCHAIR' in s -%}MANUAL_WHEELCHAIR
-{%- elif 'PROSTHE' in s -%}PROSTHESES
-{%- elif 'ORTHO' in s or 'BRACE' in s -%}ORTHOSES
-{%- elif 'FOOTWEAR' in s or 'SHOE' in s -%}THERAPEUTIC_FOOTWEAR
-{%- elif 'COCHLEAR' in s -%}COCHLEAR_IMPLANTS
-{%- elif 'HEARING' in s -%}HEARING_AIDS
-{%- elif 'SPECTACLE' in s or 'GLASSES' in s or 'EYEGLASS' in s -%}SPECTACLES
-{%- elif 'MAGNIF' in s -%}MAGNIFIERS
-{%- elif 'BRAILLE' in s -%}BRAILLE_DEVICES
-{%- elif 'SCREEN_READER' in s -%}SCREEN_READERS
-{%- elif 'COMMUNICATION_BOARD' in s -%}COMMUNICATION_BOARDS
-{%- elif 'SPEECH' in s -%}SPEECH_GENERATING_DEVICES
-{%- elif 'CUSHION' in s -%}PRESSURE_RELIEF_CUSHIONS
-{%- elif 'INCONTINEN' in s -%}INCONTINENCE_PRODUCTS
-{%- elif s -%}OTHER
-{%- endif -%}
-{%- endmacro -%}
-{%- macro medical_care_enum(v) -%}
-{%- set s = norm(v) -%}
-{%- if s in ['MAINTENANCE_MEDICINE', 'PHYSIOTHERAPY', 'OCCUPATIONAL_THERAPY', 'SPEECH_THERAPY', 'PSYCHIATRIC_CARE', 'PSYCHOLOGICAL_COUNSELLING', 'DIALYSIS', 'REGULAR_SPECIALIST_REVIEW', 'SURGERY', 'WOUND_CARE', 'RESPIRATORY_SUPPORT', 'NUTRITION_SUPPORT', 'OTHER'] -%}{{ s }}
-{%- elif 'MEDICIN' in s or 'DRUG' in s or 'MEDICATION' in s -%}MAINTENANCE_MEDICINE
-{%- elif 'PHYSIO' in s -%}PHYSIOTHERAPY
-{%- elif 'OCCUPATIONAL' in s -%}OCCUPATIONAL_THERAPY
-{%- elif 'SPEECH' in s -%}SPEECH_THERAPY
-{%- elif 'PSYCHIATR' in s -%}PSYCHIATRIC_CARE
-{%- elif 'PSYCHOLOG' in s or 'COUNSEL' in s -%}PSYCHOLOGICAL_COUNSELLING
-{%- elif 'DIALYSIS' in s -%}DIALYSIS
-{%- elif 'SPECIALIST' in s or 'REVIEW' in s -%}REGULAR_SPECIALIST_REVIEW
-{%- elif 'SURGERY' in s or 'OPERATION' in s -%}SURGERY
-{%- elif 'WOUND' in s -%}WOUND_CARE
-{%- elif 'RESPIRAT' in s or 'OXYGEN' in s -%}RESPIRATORY_SUPPORT
-{%- elif 'NUTRITION' in s or 'FEEDING' in s -%}NUTRITION_SUPPORT
-{%- elif s -%}OTHER
-{%- endif -%}
-{%- endmacro -%}
-{%- macro housing_support_enum(v) -%}
-{%- set s = norm(v) -%}
-{%- if s in ['RAMP_INSTALLATION', 'HANDRAILS', 'BATHROOM_MODIFICATION', 'DOOR_WIDENING', 'GROUND_FLOOR_ALLOCATION', 'RELOCATION', 'RENT_SUBSIDY', 'ACCESSIBLE_SOCIAL_HOUSING', 'ASSISTED_LIVING_FACILITY', 'RESIDENTIAL_CARE', 'HOME_REPAIR', 'OTHER'] -%}{{ s }}
-{%- elif 'RAMP' in s -%}RAMP_INSTALLATION
-{%- elif 'HANDRAIL' in s or 'GRAB_RAIL' in s -%}HANDRAILS
-{%- elif 'BATHROOM' in s or 'TOILET' in s -%}BATHROOM_MODIFICATION
-{%- elif 'DOOR' in s -%}DOOR_WIDENING
-{%- elif 'GROUND_FLOOR' in s -%}GROUND_FLOOR_ALLOCATION
-{%- elif 'RELOCAT' in s or 'REHOUS' in s -%}RELOCATION
-{%- elif 'RENT' in s or 'SUBSID' in s -%}RENT_SUBSIDY
-{%- elif 'SOCIAL_HOUSING' in s -%}ACCESSIBLE_SOCIAL_HOUSING
-{%- elif 'ASSISTED_LIVING' in s -%}ASSISTED_LIVING_FACILITY
-{%- elif 'RESIDENTIAL' in s -%}RESIDENTIAL_CARE
-{%- elif 'REPAIR' in s -%}HOME_REPAIR
-{%- elif s -%}OTHER
-{%- endif -%}
-{%- endmacro -%}
-{%- macro animal_assistance_enum(v) -%}
-{%- set s = norm(v) -%}
-{%- if s in ['GUIDE_DOG', 'HEARING_DOG', 'ALERT_DOG', 'MOBILITY_ASSISTANCE_DOG', 'PSYCHIATRIC_SERVICE_DOG', 'SEIZURE_RESPONSE_DOG', 'THERAPY_ANIMAL', 'OTHER'] -%}{{ s }}
-{%- elif 'GUIDE' in s -%}GUIDE_DOG
-{%- elif 'HEARING' in s -%}HEARING_DOG
-{%- elif 'SEIZURE' in s -%}SEIZURE_RESPONSE_DOG
-{%- elif 'PSYCHIATRIC' in s -%}PSYCHIATRIC_SERVICE_DOG
-{%- elif 'MOBILITY' in s -%}MOBILITY_ASSISTANCE_DOG
-{%- elif 'ALERT' in s -%}ALERT_DOG
-{%- elif 'THERAPY' in s -%}THERAPY_ANIMAL
-{%- elif s -%}OTHER
-{%- endif -%}
-{%- endmacro -%}
-{%- macro housing_type_enum(v) -%}
-{%- set s = norm(v) -%}
-{%- if s in ['INDEPENDENT_HOME', 'FAMILY_HOME', 'SUPPORTED_LIVING', 'GROUP_HOME', 'RESIDENTIAL_INSTITUTION', 'HOSPITAL_LONG_STAY', 'TEMPORARY_SHELTER', 'HOMELESS', 'OTHER'] -%}{{ s }}
-{%- elif 'HOMELESS' in s or 'STREET' in s -%}HOMELESS
-{%- elif 'SHELTER' in s -%}TEMPORARY_SHELTER
-{%- elif 'HOSPITAL' in s -%}HOSPITAL_LONG_STAY
-{%- elif 'INSTITUTION' in s -%}RESIDENTIAL_INSTITUTION
-{%- elif 'GROUP' in s -%}GROUP_HOME
-{%- elif 'SUPPORTED' in s -%}SUPPORTED_LIVING
-{%- elif 'FAMILY' in s -%}FAMILY_HOME
-{%- elif 'INDEPENDENT' in s or 'OWN' in s -%}INDEPENDENT_HOME
-{%- elif s -%}OTHER
-{%- endif -%}
-{%- endmacro -%}
-{%- macro transport_enum(v) -%}
-{%- set s = norm(v) -%}
-{%- if s in ['NONE', 'ACCESSIBLE_PUBLIC_TRANSPORT', 'ADAPTED_VEHICLE', 'WHEELCHAIR_ACCESSIBLE_VEHICLE', 'ESCORTED_TRAVEL', 'AMBULANCE_TRANSPORT', 'TRANSPORT_ALLOWANCE', 'OTHER'] -%}{{ s }}
-{%- elif 'WHEELCHAIR' in s -%}WHEELCHAIR_ACCESSIBLE_VEHICLE
-{%- elif 'AMBULANCE' in s -%}AMBULANCE_TRANSPORT
-{%- elif 'ESCORT' in s or 'ACCOMPAN' in s -%}ESCORTED_TRAVEL
-{%- elif 'ALLOWANCE' in s or 'SUBSID' in s -%}TRANSPORT_ALLOWANCE
-{%- elif 'ADAPTED' in s or 'MODIFIED' in s -%}ADAPTED_VEHICLE
-{%- elif 'PUBLIC' in s -%}ACCESSIBLE_PUBLIC_TRANSPORT
-{%- elif s in ['', 'NIL'] -%}NONE
-{%- elif s -%}OTHER
-{%- endif -%}
-{%- endmacro -%}
-{%- macro employment_enum(v) -%}
-{%- set s = norm(v) -%}
-{%- if s in ['EMPLOYED', 'SELF_EMPLOYED', 'SHELTERED_EMPLOYMENT', 'SUPPORTED_EMPLOYMENT', 'UNEMPLOYED_SEEKING', 'UNEMPLOYED_NOT_SEEKING', 'STUDENT', 'RETIRED', 'UNABLE_TO_WORK', 'OTHER'] -%}{{ s }}
-{%- elif 'SHELTERED' in s -%}SHELTERED_EMPLOYMENT
-{%- elif 'SUPPORTED' in s -%}SUPPORTED_EMPLOYMENT
-{%- elif 'SELF' in s and 'EMPLOY' in s -%}SELF_EMPLOYED
-{%- elif 'UNABLE' in s -%}UNABLE_TO_WORK
-{%- elif 'UNEMPLOY' in s -%}UNEMPLOYED_SEEKING
-{%- elif 'STUDENT' in s -%}STUDENT
-{%- elif 'RETIRED' in s -%}RETIRED
-{%- elif 'EMPLOYED' in s -%}EMPLOYED
-{%- elif s -%}OTHER
-{%- endif -%}
-{%- endmacro -%}
-{%- macro relationship_enum(v) -%}
-{%- set s = norm(v) -%}
-{%- if s in ['SPOUSE', 'PARENT', 'CHILD', 'SIBLING', 'GRANDPARENT', 'GRANDCHILD', 'GUARDIAN', 'OTHER_RELATIVE', 'NON_RELATIVE'] -%}{{ s }}
-{%- elif 'GRANDPARENT' in s or 'GRANDFATHER' in s or 'GRANDMOTHER' in s -%}GRANDPARENT
-{%- elif 'GRANDCHILD' in s -%}GRANDCHILD
-{%- elif 'GUARDIAN' in s -%}GUARDIAN
-{%- elif 'SPOUSE' in s or 'HUSBAND' in s or 'WIFE' in s -%}SPOUSE
-{%- elif 'PARENT' in s or 'MOTHER' in s or 'FATHER' in s -%}PARENT
-{%- elif 'CHILD' in s or 'SON' in s or 'DAUGHTER' in s -%}CHILD
-{%- elif 'SIBLING' in s or 'BROTHER' in s or 'SISTER' in s -%}SIBLING
-{%- elif 'RELATIVE' in s -%}OTHER_RELATIVE
-{%- elif s -%}NON_RELATIVE
-{%- endif -%}
-{%- endmacro -%}
-{%- macro caregiver_rel_enum(v) -%}
-{%- set s = norm(v) -%}
-{%- if s in ['SPOUSE', 'PARENT', 'CHILD', 'SIBLING', 'OTHER_RELATIVE', 'NEIGHBOUR', 'FRIEND', 'PAID_CAREGIVER', 'COMMUNITY_VOLUNTEER', 'INSTITUTION', 'OTHER'] -%}{{ s }}
-{%- elif 'PAID' in s or 'PROFESSIONAL' in s -%}PAID_CAREGIVER
-{%- elif 'VOLUNTEER' in s -%}COMMUNITY_VOLUNTEER
-{%- elif 'INSTITUTION' in s -%}INSTITUTION
-{%- elif 'NEIGHBO' in s -%}NEIGHBOUR
-{%- elif 'FRIEND' in s -%}FRIEND
-{%- elif 'SPOUSE' in s or 'HUSBAND' in s or 'WIFE' in s -%}SPOUSE
-{%- elif 'PARENT' in s or 'MOTHER' in s or 'FATHER' in s -%}PARENT
-{%- elif 'CHILD' in s or 'SON' in s or 'DAUGHTER' in s -%}CHILD
-{%- elif 'SIBLING' in s -%}SIBLING
-{%- elif 'RELATIVE' in s -%}OTHER_RELATIVE
-{%- elif s -%}OTHER
-{%- endif -%}
-{%- endmacro -%}
-{%- macro enrolment_status_enum(v) -%}
-{%- set s = norm(v) -%}
-{%- if s in ['APPLIED', 'ENROLLED', 'ACTIVE', 'SUSPENDED', 'EXITED', 'REJECTED'] -%}{{ s }}
-{%- elif 'APPLI' in s -%}APPLIED
-{%- elif 'SUSPEND' in s -%}SUSPENDED
-{%- elif 'EXIT' in s or 'CLOSED' in s -%}EXITED
-{%- elif 'REJECT' in s -%}REJECTED
-{%- elif 'ACTIVE' in s -%}ACTIVE
-{%- elif s -%}ENROLLED
-{%- endif -%}
+{# Integer age only when the sender actually sent a number (the standard sends a
+   life stage; a numeric code 0-3 is a code, not an age). #}
+{%- macro onset_years(v) -%}
+{%- set s = (v | string | trim) if v is not none else '' -%}
+{%- if s.isdigit() and (s | int) > 3 -%}{{ s | int }}{%- else -%}null{%- endif -%}
 {%- endmacro -%}
 {# yes(1)/no(0) per DO.DR.02. Anything unrecognised stays null: "not stated" and
    "states they are not disabled" are different answers. #}
@@ -303,9 +651,11 @@
 {%- endif -%}
 {%- endmacro -%}
 {%- set rec = expanded -%}
-{%- set demo = rec.get('demographic_info') or {} -%}
+{# DO.DR.03.personal_details (standard) or the flat legacy layout. #}
+{%- set member = rec.get('personal_details') if rec.get('personal_details') is mapping else rec -%}
+{%- set demo = member.get('demographic_info') or {} -%}
 {%- set name = demo.get('name') or {} -%}
-{%- set addl_raw = rec.get('additional_attributes') -%}
+{%- set addl_raw = member.get('additional_attributes') if member.get('additional_attributes') is not none else rec.get('additional_attributes') -%}
 {%- set addl = namespace(map={}) -%}
 {%- if addl_raw is mapping -%}
   {%- set addl.map = addl_raw -%}
@@ -317,31 +667,51 @@
   {%- set addl.map = merged -%}
 {%- endif -%}
 {%- set a = addl.map -%}
-{%- set support = rec.get('disability_support') or {} -%}
+{# disability_support: object or list of objects; flatten every sub-list. #}
+{%- set support_raw = rec.get('disability_support') -%}
+{%- set supports = (support_raw if support_raw is iterable and support_raw is not mapping and support_raw is not string else ([support_raw] if support_raw is mapping else [])) -%}
+{%- set human = [] -%}{%- set assistive = [] -%}{%- set medical = [] -%}{%- set housing = [] -%}{%- set animal = [] -%}
+{%- for s in supports -%}
+  {%- if s is mapping -%}
+    {%- set h = s.get('human_assistance') -%}
+    {%- if h is mapping -%}{%- set _ = human.append(h) -%}
+    {%- elif h is iterable and h is not string -%}{%- for x in h -%}{%- if x is mapping -%}{%- set _ = human.append(x) -%}{%- endif -%}{%- endfor -%}{%- endif -%}
+    {%- for key, target in [('assistive_technology', assistive), ('medical_care', medical), ('housing_support', housing), ('animal_assistance', animal)] -%}
+      {%- set v = s.get(key) -%}
+      {%- if v is mapping -%}{%- set _ = target.append(v) -%}
+      {%- elif v is iterable and v is not string -%}{%- for x in v -%}{%- if x is mapping -%}{%- set _ = target.append(x) -%}{%- endif -%}{%- endfor -%}{%- endif -%}
+    {%- endfor -%}
+  {%- endif -%}
+{%- endfor -%}
 {%- set details = rec.get('disability_details') or [] -%}
-{%- set human = support.get('human_assistance') or [] -%}
-{%- set assistive = support.get('assistive_technology') or [] -%}
-{%- set medical = support.get('medical_care') or [] -%}
-{%- set housing = support.get('housing_support') or [] -%}
-{%- set animal = support.get('animal_assistance') or [] -%}
-{%- set relatives = rec.get('related_person') or [] -%}
-{%- set programs = rec.get('programs_enrolments') or [] -%}
-{%- set identifiers = rec.get('member_identifier') or [] -%}
-{%- set uin = namespace(value='') -%}
-{%- for identifier in identifiers -%}
-  {%- if identifier is mapping and not uin.value and identifier.get('identifier_type') in ['UIN', 'uin'] -%}
-    {%- set uin.value = identifier.get('identifier_value') | string | trim -%}
+{%- set relatives = member.get('related_person') or rec.get('related_person') or [] -%}
+{%- set programs = rec.get('programs_enrolments') or rec.get('programs_enrollments') or [] -%}
+{# Identifiers: CD.COM.01 UIN is the national id. Legacy senders put the
+   registry's own number under UIN and the national id under NationalID; both
+   are read so nothing already connected breaks. #}
+{%- set nid = namespace(explicit='', uin='') -%}
+{%- for source in [member.get('member_identifier'), demo.get('identifier')] -%}
+  {%- if source is iterable and source is not string and source is not mapping -%}
+    {%- for identifier in source -%}
+      {%- if identifier is mapping -%}
+        {%- set t = norm(identifier.get('identifier_type')) -%}
+        {%- set v = (identifier.get('identifier_value') or '') | string | trim -%}
+        {%- if v and not nid.explicit and t in ['NATIONALID', 'NATIONAL_ID', 'FOUNDATIONAL_ID'] -%}
+          {%- set nid.explicit = v -%}
+        {%- elif v and not nid.uin and t == 'UIN' -%}
+          {%- set nid.uin = v -%}
+        {%- endif -%}
+      {%- endif -%}
+    {%- endfor -%}
   {%- endif -%}
 {%- endfor -%}
-{%- set nid = namespace(value='') -%}
-{%- for identifier in (demo.get('identifier') or []) -%}
-  {%- if identifier is mapping and not nid.value -%}
-    {%- set nid.value = identifier.get('identifier_value') | string | trim -%}
-  {%- endif -%}
-{%- endfor -%}
+{# An explicit NationalID (legacy senders) beats UIN, because those senders put
+   the registry's own number under UIN. #}
+{%- set national_id = nid.explicit or nid.uin -%}
 {%- set address = (demo.get('address') or [{}]) | first -%}
 {%- set phone = first_str(demo.get('phone_number')) -%}
 {%- set email = first_str(demo.get('email')) -%}
+{%- set langs_raw = member.get('language_code') -%}
 {
   "first_name": {{ (name.get('given_name') or '') | tojson }},
   "middle_name": {{ (name.get('second_name') or '') | tojson }},
@@ -349,19 +719,19 @@
   "prefix": {{ (name.get('prefix') or '') | tojson }},
   "suffix": {{ (name.get('suffix') or '') | tojson }},
   "full_name": {{ ((name.get('given_name') or '') ~ ' ' ~ (name.get('surname') or '')) | trim | tojson }},
-  "gender": {{ gender_enum(demo.get('sex')) | tojson }},
-  "birth_date": {{ (demo.get('birth_date') or '') | string | tojson }},
-  "death_date": {{ (demo.get('death_date') or '') | string | tojson }},
-  "marital_status": {{ marital_enum(rec.get('marital_status')) | tojson }},
-  "occupation": {{ (rec.get('occupation') or '') | string | trim | tojson }},
-  "income_level": {{ (rec.get('income_level') or '') | string | trim | upper | replace(' ', '_') | tojson }},
-  "education_level": {{ (rec.get('education_level') or '') | string | trim | upper | replace(' ', '_') | tojson }},
-  "language_code": {{ ((rec.get('language_code') or []) | join(',') if rec.get('language_code') is iterable and rec.get('language_code') is not string else (rec.get('language_code') or '')) | string | tojson }},
-  "registration_date": {{ (rec.get('registration_date') or demo.get('registration_date') or '') | string | tojson }},
+  "gender": {{ (cw('SEX', demo.get('sex')) or 'UNKNOWN') | tojson }},
+  "birth_date": {{ d(demo.get('birth_date')) | tojson }},
+  "death_date": {{ d(demo.get('death_date')) | tojson }},
+  "marital_status": {{ (norm(member.get('marital_status')) if norm(member.get('marital_status')) in ['SINGLE', 'MARRIED', 'DIVORCED', 'WIDOWED', 'SEPARATED'] else 'UNKNOWN') | tojson }},
+  "occupation": {{ (member.get('occupation') or '') | string | trim | tojson }},
+  "income_level": {{ norm(member.get('income_level')) | tojson }},
+  "education_level": {{ norm(member.get('education_level')) | tojson }},
+  "language_code": {{ ((langs_raw | join(',')) if langs_raw is iterable and langs_raw is not string else (langs_raw or '')) | string | tojson }},
+  "registration_date": {{ d(rec.get('registration_date') or member.get('registration_date') or demo.get('registration_date')) | tojson }},
   "person_identifier": [
     {
-      "foundational_id": {{ (nid.value or uin.value) | tojson }},
-      "identity_evidence_type": {{ ('FOUNDATIONAL_ID_VERIFIED' if nid.value else 'NONE') | tojson }},
+      "foundational_id": {{ national_id | tojson }},
+      "identity_evidence_type": {{ ('FOUNDATIONAL_ID_VERIFIED' if national_id else 'NONE') | tojson }},
       "registration_channel": "SOCIAL_REGISTRY_TRANSFER"
     }
   ],
@@ -381,112 +751,122 @@
   ],
   "disability_status_and_assessment": [
     {
-      "self_id_disability": {{ self_id_bool(rec.get('self_id_disability')) }},
-      "disability_status": {{ disability_status_enum(rec.get('disability_status')) | tojson }},
-      "disability_status_level": {{ status_level_enum(rec.get('disability_status_level')) | tojson }},
-      "assessment_date": {{ (a.get('assessment_date') or '') | string | tojson }},
+      "self_id_disability": {{ self_id_bool(member.get('self_id_disability')) }},
+      "disability_status": {{ cw('DISABILITY_STATUS', rec.get('disability_status')) | tojson }},
+      "disability_status_level": {{ cw('DISABILITY_STATUS_LEVEL', rec.get('disability_status_level')) | tojson }},
+      "assessment_date": {{ d(a.get('assessment_date')) | tojson }},
       "assessment_authority": {{ (a.get('assessment_authority') or '') | string | tojson }},
-      "certificate_expiry_date": {{ (a.get('certificate_expiry_date') or '') | string | tojson }}
+      "certificate_issue_date": {{ d(a.get('certificate_issue_date')) | tojson }},
+      "certificate_expiry_date": {{ d(a.get('certificate_expiry_date')) | tojson }}
     }
   ],
   "living_situation": [
     {
-      "housing_type": {{ housing_type_enum(rec.get('housing_type')) | tojson }},
-      "transport_requirement": {{ transport_enum(rec.get('transport_requirement')) | tojson }},
-      "legal_capacity_status": {{ (a.get('legal_capacity_status') or '') | string | trim | upper | replace(' ', '_') | tojson }}
+      "housing_type": {{ cw('HOUSING_TYPE', rec.get('housing_type')) | tojson }},
+      "transport_requirement": {{ cw('TRANSPORT_REQUIREMENT', rec.get('transport_requirement')) | tojson }},
+      "legal_capacity_status": {{ norm(a.get('legal_capacity_status')) | tojson }}
     }
   ],
   "socio_economic_profile": [
     {
-      "employment_status": {{ employment_enum(rec.get('employment_status')) | tojson }}
+      "employment_status": {{ norm(member.get('employment_status')) | tojson }}
     }
   ],
   "disability_details": [
     {%- for row in details -%}
+    {%- set extra = (row.get('additional_attributes') or [{}]) -%}
+    {%- set extra0 = (extra | first) if extra is iterable and extra is not mapping and extra is not string and extra else (extra if extra is mapping else {}) -%}
     {
-      "impairment_type": {{ impairment_type_enum(row.get('impairment_type')) | tojson }},
-      "impairment_level": {{ impairment_level_enum(row.get('impairment_level')) | tojson }},
-      "impairment_cause": {{ impairment_cause_enum(row.get('impairment_cause')) | tojson }},
-      "age_on_set": {% if row.get('age_on_set') is none %}null{% else %}{{ row.get('age_on_set') | int }}{% endif %},
-      "is_primary_impairment": {% if loop.first %}true{% else %}false{% endif %}
+      "impairment_type": {{ cw('IMPAIRMENT_TYPE', row.get('impairment_type')) | tojson }},
+      "impairment_level": {{ cw('IMPAIRMENT_LEVEL', row.get('impairment_level')) | tojson }},
+      "impairment_cause": {{ cw('IMPAIRMENT_CAUSE', row.get('impairment_cause')) | tojson }},
+      "age_onset_band": {{ onset_band(row.get('age_on_set')) | tojson }},
+      "age_on_set": {% if extra0 is mapping and extra0.get('age_on_set_years') is not none %}{{ extra0.get('age_on_set_years') | int }}{% else %}{{ onset_years(row.get('age_on_set')) }}{% endif %},
+      "is_primary_impairment": {% if extra0 is mapping and 'is_primary_impairment' in extra0 %}{{ 'true' if extra0.get('is_primary_impairment') else 'false' }}{% elif loop.first %}true{% else %}false{% endif %}
     }{% if not loop.last %},{% endif %}
     {%- endfor -%}
   ],
   "human_assistance": [
     {%- for row in human -%}
+    {%- set cg = row.get('caregiver') -%}
     {
-      "assistance_type": {{ human_assistance_enum(row.get('type')) | tojson }},
-      "frequency": {{ frequency_enum(row.get('frequency')) | tojson }},
-      "support_status": {{ support_status_enum(row.get('support_status')) | tojson }},
-      "caregiver_name": {{ ((row.get('caregiver') or {}).get('name') if row.get('caregiver') is mapping else row.get('caregiver')) | default('', true) | string | tojson }},
-      "caregiver_identifier": {{ ((row.get('caregiver') or {}).get('identifier') if row.get('caregiver') is mapping else '') | default('', true) | string | tojson }},
-      "caregiver_relationship": {{ caregiver_rel_enum(row.get('relationship')) | tojson }},
-      "registration_date": {{ (row.get('registration_date') or '') | string | tojson }},
-      "last_updated": {{ (row.get('last_updated') or '') | string | tojson }}
+      "assistance_type": {{ cw('HUMAN_ASSISTANCE_TYPE', row.get('type')) | tojson }},
+      "frequency": {{ cw('SUPPORT_FREQUENCY', row.get('frequency')) | tojson }},
+      "support_status": {{ cw('SUPPORT_STATUS', row.get('support_status')) | tojson }},
+      "caregiver_name": {{ ((cg.get('name') if cg is mapping else cg) or '') | string | tojson }},
+      "caregiver_identifier": {{ ((cg.get('identifier') if cg is mapping else '') or '') | string | tojson }},
+      "caregiver_relationship": {{ cw('CAREGIVER_RELATIONSHIP', row.get('relationship')) | tojson }},
+      "registration_date": {{ d(row.get('registration_date')) | tojson }},
+      "last_updated": {{ d(row.get('last_updated')) | tojson }}
     }{% if not loop.last %},{% endif %}
     {%- endfor -%}
   ],
   "assistive_technology": [
     {%- for row in assistive -%}
     {
-      "assistive_technology_type": {{ assistive_tech_enum(row.get('type')) | tojson }},
-      "support_status": {{ support_status_enum(row.get('support_status')) | tojson }},
-      "registration_date": {{ (row.get('registration_date') or '') | string | tojson }},
-      "last_updated": {{ (row.get('last_updated') or '') | string | tojson }}
+      "assistive_technology_type": {{ cw('ASSISTIVE_TECHNOLOGY_TYPE', row.get('type')) | tojson }},
+      "support_status": {{ cw('SUPPORT_STATUS', row.get('support_status')) | tojson }},
+      "registration_date": {{ d(row.get('registration_date')) | tojson }},
+      "last_updated": {{ d(row.get('last_updated')) | tojson }}
     }{% if not loop.last %},{% endif %}
     {%- endfor -%}
   ],
   "medical_care": [
     {%- for row in medical -%}
     {
-      "medical_care_type": {{ medical_care_enum(row.get('type')) | tojson }},
-      "support_status": {{ support_status_enum(row.get('support_status')) | tojson }},
-      "registration_date": {{ (row.get('registration_date') or '') | string | tojson }},
-      "last_updated": {{ (row.get('last_updated') or '') | string | tojson }}
+      "medical_care_type": {{ cw('MEDICAL_CARE_TYPE', row.get('type')) | tojson }},
+      "support_status": {{ cw('SUPPORT_STATUS', row.get('support_status')) | tojson }},
+      "registration_date": {{ d(row.get('registration_date')) | tojson }},
+      "last_updated": {{ d(row.get('last_updated')) | tojson }}
     }{% if not loop.last %},{% endif %}
     {%- endfor -%}
   ],
   "housing_support": [
     {%- for row in housing -%}
     {
-      "housing_support_type": {{ housing_support_enum(row.get('type')) | tojson }},
-      "support_status": {{ support_status_enum(row.get('support_status')) | tojson }},
-      "registration_date": {{ (row.get('registration_date') or '') | string | tojson }},
-      "last_updated": {{ (row.get('last_updated') or '') | string | tojson }}
+      "housing_support_type": {{ cw('HOUSING_SUPPORT_TYPE', row.get('type')) | tojson }},
+      "support_status": {{ cw('SUPPORT_STATUS', row.get('support_status')) | tojson }},
+      "registration_date": {{ d(row.get('registration_date')) | tojson }},
+      "last_updated": {{ d(row.get('last_updated')) | tojson }}
     }{% if not loop.last %},{% endif %}
     {%- endfor -%}
   ],
   "animal_assistance": [
     {%- for row in animal -%}
     {
-      "animal_assistance_type": {{ animal_assistance_enum(row.get('type')) | tojson }},
-      "support_status": {{ support_status_enum(row.get('support_status')) | tojson }},
-      "registration_date": {{ (row.get('registration_date') or '') | string | tojson }},
-      "last_updated": {{ (row.get('last_updated') or '') | string | tojson }}
+      "animal_assistance_type": {{ cw('ANIMAL_ASSISTANCE_TYPE', row.get('type')) | tojson }},
+      "support_status": {{ cw('SUPPORT_STATUS', row.get('support_status')) | tojson }},
+      "registration_date": {{ d(row.get('registration_date')) | tojson }},
+      "last_updated": {{ d(row.get('last_updated')) | tojson }}
     }{% if not loop.last %},{% endif %}
     {%- endfor -%}
   ],
   "related_persons": [
     {%- for row in relatives -%}
-    {%- set member = row.get('related_member') or {} -%}
-    {%- set member_ids = member.get('member_identifier') or [] -%}
+    {%- set rm = row.get('related_member') or {} -%}
+    {%- set rm_ids = (rm.get('identifier') or rm.get('member_identifier') or []) if rm is mapping else [] -%}
+    {%- set rm_name = rm.get('name') if rm is mapping else '' -%}
+    {%- set rextra = (row.get('additional_attributes') or [{}]) -%}
+    {%- set rextra0 = (rextra | first) if rextra is iterable and rextra is not mapping and rextra is not string and rextra else (rextra if rextra is mapping else {}) -%}
     {
-      "relationship_type": {{ relationship_enum(row.get('relationship_type')) | tojson }},
-      "related_person_name": {{ (member.get('name') or '') | string | tojson }},
-      "related_person_identifier": {{ ((member_ids | first).get('identifier_value') if member_ids and (member_ids | first) is mapping else '') | default('', true) | string | tojson }},
-      "is_primary_caregiver": {% if row.get('is_primary_caregiver') %}true{% else %}false{% endif %},
-      "is_legal_guardian": {% if row.get('is_legal_guardian') %}true{% else %}false{% endif %}
+      "relationship_type": {{ cw('RELATIONSHIP', row.get('relationship_type')) | tojson }},
+      "related_person_name": {{ ((rm_name.get('given_name') ~ ' ' ~ (rm_name.get('surname') or '')) | trim if rm_name is mapping else (rm_name or '')) | string | tojson }},
+      "related_person_identifier": {{ ((rm_ids | first).get('identifier_value') if rm_ids and (rm_ids | first) is mapping else '') | default('', true) | string | tojson }},
+      "related_person_birth_date": {{ d(rm.get('birth_date') if rm is mapping else '') | tojson }},
+      "is_primary_caregiver": {% if (rextra0 is mapping and rextra0.get('is_primary_caregiver')) or row.get('is_primary_caregiver') %}true{% else %}false{% endif %},
+      "is_legal_guardian": {% if (rextra0 is mapping and rextra0.get('is_legal_guardian')) or row.get('is_legal_guardian') %}true{% else %}false{% endif %},
+      "is_emergency_contact": {% if rextra0 is mapping and rextra0.get('is_emergency_contact') %}true{% else %}false{% endif %}
     }{% if not loop.last %},{% endif %}
     {%- endfor -%}
   ],
   "program_enrolments": [
     {%- for row in programs -%}
     {
-      "program_name": {{ (row.get('program_name') or '') | string | tojson }},
-      "program_identifier": {{ (row.get('program_identifier') or '') | string | tojson }},
-      "enrolment_status": {{ enrolment_status_enum(row.get('enrolment_status')) | tojson }},
-      "enrolment_start_date": {{ (row.get('enrolment_start_date') or '') | string | tojson }},
-      "enrolment_end_date": {{ (row.get('enrolment_end_date') or '') | string | tojson }}
+      "program_name": {{ (row.get('program_name') or row.get('programme_name') or '') | string | tojson }},
+      "program_identifier": {{ (row.get('program_identifier') or row.get('programme_identifier') or '') | string | tojson }},
+      "enrolment_status": {{ (norm(row.get('enrolment_status')) if norm(row.get('enrolment_status')) in ['APPLIED', 'ENROLLED', 'ACTIVE', 'SUSPENDED', 'EXITED', 'REJECTED'] else ('ENROLLED' if norm(row.get('enrolment_status')) else '')) | tojson }},
+      "enrolment_start_date": {{ d(row.get('enrolment_start_date')) | tojson }},
+      "enrolment_end_date": {{ d(row.get('enrolment_end_date')) | tojson }}
     }{% if not loop.last %},{% endif %}
     {%- endfor -%}
   ]
