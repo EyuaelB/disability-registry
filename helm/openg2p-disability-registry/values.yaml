@@ -34,7 +34,10 @@ global:
   masterDataDB: 'master_data'
   masterDataDBPort: 5432
   masterDataDBUser: 'master_data_user'
-  masterDataDBSecret: 'master-data'
+  # The openg2p-master-data chart names its DB secret `master-data-db` (key
+  # master-data-db-user). The previous default `master-data` left the
+  # reporting-views job in CreateContainerConfigError on every real install.
+  masterDataDBSecret: 'master-data-db'
   masterDataDBUserPasswordKey: 'master-data-db-user'
   # Ingress host for this registry. Overrides the subchart's generic default.
   registryHostname: '{{ .Release.Name }}.{{ .Release.Namespace }}.openg2p.org'
@@ -48,10 +51,25 @@ registry:
     image:
       repository: openg2p/openg2p-disability-registry-staff-api
       tag: 0.0.0-develop
+  # DCI expression search (API.DR.01 SYN, query_type=expression) is gated by an
+  # allow-list of root-register columns in the platform. The platform default
+  # is person-generic; these are the disability fields a social-protection
+  # system filters on (PRS.DR.01 proactive enrolment), plus the per-level
+  # location codes this extension derives from the Master Data hierarchy
+  # (geo_level_N_value_id, see register_domain/services/utils/geo_levels.py).
   partnerApi:
     image:
       repository: openg2p/openg2p-disability-registry-partner-api
       tag: 0.0.0-develop
+    envVars:
+      REGISTRY_PARTNER_API_DCI_EXPRESSION_ALLOWED_FIELDS: >-
+        ["functional_record_id","foundational_id","first_name","middle_name","last_name",
+         "given_name","gender","birth_date","record_status","marital_status",
+         "disability_status","disability_status_level","support_needs_level",
+         "has_unmet_support_need","unmet_support_needs_count","housing_type",
+         "transport_requirement","employment_status","self_id_disability",
+         "geo_lowest_level_value_id","geo_level_1_value_id","geo_level_2_value_id",
+         "geo_level_3_value_id","geo_level_4_value_id","geo_level_5_value_id"]
   celeryWorker:
     image:
       repository: openg2p/openg2p-disability-registry-celery
@@ -128,10 +146,14 @@ registry:
     # use that spelling — so it stays until they are renamed together. It must
     # match g2p_register_definitions.sql.
     farmerRegisterId: a0000000-0000-4000-8000-000000000001
-    # Register mnemonic carried as reg_type in the DCI search envelope, and the
-    # DCI record type. Both must match this registry's register definition.
+    # reg_type carried in the DCI search envelope. The platform resolves it by
+    # register MNEMONIC (g2p_dci_service._get_register_id), so it must be this
+    # register's mnemonic — the standard's example value ns:org:RegistryType:DR
+    # cannot be used for outbound search until the platform maps it. Inbound
+    # rules accept both (see meta_data/registry-inbound-message-rules/).
     regType: PersonWithDisability
-    regRecordType: 'spdci-extensions-dci:PersonwithDisability'
+    # DCI record type, as the standard's dr_api_v1.0.0 spells it.
+    regRecordType: 'spdci-extensions-dci:DisabledPerson'
     # functional_record_id of the injected sanity record (see
     # test/sanity/sanity/fixtures.py — the two must not drift).
     searchText: SANITY-PWD-0001
@@ -141,7 +163,10 @@ registry:
     # record's top-level keys, so a scope naming anything else silently clamps
     # every record to {}. `denied` must likewise name real scopes the template
     # emits, or the clamping test asserts nothing.
-    dataScopes: "demographic_info"
+    # `personal_details` is the DO.DR.02 Member block the standard nests inside
+    # DO.DR.03 (name, sex, birth date, contacts, family, work); consenting to it
+    # is one grant, which is the price of following the standard's layout.
+    dataScopes: "personal_details"
     deniedScopes: "disability_details"
     # UI coordinates the change-request payload carries. These are OUR tab and
     # section ids (meta_data/register-metadata/), not the reference registry's.

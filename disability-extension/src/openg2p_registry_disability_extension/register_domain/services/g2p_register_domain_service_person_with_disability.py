@@ -5,6 +5,7 @@ from openg2p_registry_core.models import G2PRegisterChangeRequest
 from openg2p_registry_core.services import G2PRegisterDomainService
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .utils.geo_levels import apply_level_codes
 from .utils.support_summary import recompute_support_summary
 from .utils.validations import (
     as_int,
@@ -175,7 +176,9 @@ class G2PRegisterDomainServicePersonWithDisability(G2PRegisterDomainService):
     # ── lifecycle hooks ──────────────────────────────────────────────────────
 
     async def post_ingest(self, register_id: str, register_row, session: AsyncSession):
-        """A person ingested with support rows needs its summary built once."""
+        """A person ingested with support rows needs its summary built once, and
+        the per-level location codes derived from the hierarchy the ORM fetched."""
+        apply_level_codes(register_row)
         internal_record_id = getattr(register_row, "internal_record_id", None)
         if internal_record_id:
             await recompute_support_summary(session, internal_record_id)
@@ -185,6 +188,19 @@ class G2PRegisterDomainServicePersonWithDisability(G2PRegisterDomainService):
         approval is the cheapest reliable point at which to reconcile a summary
         that drifted — for instance after a bulk import that bypassed the hooks."""
         await recompute_support_summary(session, change_request.internal_record_id)
+        await self._refresh_level_codes(session, change_request.internal_record_id)
+
+    @staticmethod
+    async def _refresh_level_codes(session: AsyncSession, internal_record_id: str) -> None:
+        """An approved change may have moved the person; re-derive the level
+        columns from the (already refreshed) hierarchy."""
+        if not internal_record_id:
+            return
+        from ..models.person_with_disability import G2PRegisterPersonWithDisability
+
+        person = await session.get(G2PRegisterPersonWithDisability, internal_record_id)
+        if person is not None:
+            apply_level_codes(person)
 
     @staticmethod
     def _calculate_age(birth_date: date) -> int | None:

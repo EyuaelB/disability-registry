@@ -45,6 +45,39 @@ triage score, the headline dashboard, and the map. "Unmet" is defined in exactly
 four places and they are kept in step deliberately — see
 [`utils/support_summary.py`](disability-extension/src/openg2p_registry_disability_extension/register_domain/services/utils/support_summary.py).
 
+## Speaking the SPDCI standard
+
+Data crosses to and from other systems through two Jinja templates in
+`disability-extension/.../templates/`. Everything the standard fixes about that
+exchange is handled in one place each:
+
+- **Code lists** (CD.DR.01 – CD.DR.15, CD.COM sex / identifier / relationship):
+  one table per list in
+  [`register_domain/models/dci_crosswalk.py`](disability-extension/src/openg2p_registry_disability_extension/register_domain/models/dci_crosswalk.py),
+  copied into both templates by `./scripts/generate-dci-crosswalk.py`. Inbound
+  accepts the standard's label, its numeric code and our enum name; outbound
+  emits the standard's label. Unknown values fall back, never guess.
+  `test/test_dci_crosswalk.py` renders every standard value through both
+  templates and fails the build if one does not round-trip.
+- **Record layout** follows DO.DR.03: the DO.DR.02 Member block sits under
+  `personal_details`, `disability_support` is a list whose elements each carry
+  one `human_assistance`, `age_on_set` is the CD.DR.07 life stage, `UIN` is the
+  national ID. The inbound template also still accepts the older flat layout.
+- **Disability-specific endpoints** (API.DR.05 – 07:
+  `/dci/registry/sync/get-disability-status`, `get-disability-details`,
+  `get-disability-support`) are served by this extension from
+  `partner_api/dr_controller.py`, attached to the partner API at start-up. They
+  reuse the platform's signature and consent checks. The common endpoints
+  (search, subscribe, notify, status) stay with the platform.
+- **Filtering by location** (API.DR.01 expression search): the person row carries
+  `geo_level_1..5_value_id`, derived from the Master Data hierarchy by
+  `services/utils/geo_levels.py`, and the chart lists them in
+  `REGISTRY_PARTNER_API_DCI_EXPRESSION_ALLOWED_FIELDS`.
+
+Known gap: the platform renders templates without a current date, so CD.DR.14
+"Expired" appears in a search response only when the stored status is `EXPIRED`;
+the `get-disability-status` endpoint compares `certificate_expiry_date` live.
+
 ## Repository layout
 
 ```

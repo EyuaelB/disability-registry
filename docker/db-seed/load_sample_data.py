@@ -373,6 +373,14 @@ def build_person(source: dict, profile: dict, columns: dict[str, str]) -> dict:
     geo_value_id, geo_hierarchy = resolve_geo(source)
     row["geo_lowest_level_value_id"] = geo_value_id
     row["geo_code_hierarchy_json"] = geo_hierarchy
+    # One searchable column per level (geo_level_1..5_value_id), root first — the
+    # same derivation as register_domain/services/utils/geo_levels.py, inlined
+    # because this image does not install the extension package. Written here
+    # because the ORM hooks that normally derive it do not fire for raw SQL.
+    levels = (geo_hierarchy or {}).get("hierarchy") or []
+    for index in range(5):
+        node = levels[index] if index < len(levels) and isinstance(levels[index], dict) else {}
+        row[f"geo_level_{index + 1}_value_id"] = node.get("level_value_id") or None
 
     return project(row, columns)
 
