@@ -367,3 +367,14 @@ def test_templates_referenced_by_metadata_exist(name):
         f"upload it to MinIO but nothing would reference it"
     )
     assert (TEMPLATES / name).is_file(), f"{name} is registered in metadata but does not exist"
+
+
+def test_every_tab_label_has_english_text():
+    """The portal translates `tab_label`; without a key it shows the raw name."""
+    translations = json.loads((REPO / "translation/domain.json").read_text())
+    labels = set()
+    for name in ("g2p_register_ui_tabs.sql", "g2p_intake_form_ui_tabs.sql"):
+        sql = (EXT / "meta_data/register-metadata" / name).read_text()
+        labels |= set(re.findall(r"^\('[^']*','[^']*','([^']*)'", sql, re.M))
+    assert len(labels) == 7
+    assert sorted(labels - set(translations)) == []
