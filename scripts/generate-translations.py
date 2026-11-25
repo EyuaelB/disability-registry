@@ -77,6 +77,22 @@ OVERRIDES = {
     "ADOLESCENCE_13_17": "Adolescence (13-17)",
     "ADULTHOOD_18_59": "Adulthood (18-59)",
     "OLD_AGE_60_PLUS": "Old age (60+)",
+    # Acronyms and joins the generic humaniser flattens ("Sms", "Icf based").
+    # scripts/generate-code-lists.py takes its dropdown displays from the file
+    # this writes, so these are also what Master Data shows.
+    "SMS": "SMS",
+    "NGO": "NGO",
+    "ICF_BASED": "ICF based",
+    "CRVS_TRANSFER": "CRVS transfer",
+    "FOUNDATIONAL_ID_VERIFIED": "Foundational ID verified",
+    "WASHINGTON_GROUP_SHORT_SET": "Washington Group short set",
+    "WASHINGTON_GROUP_EXTENDED": "Washington Group extended",
+    "CONFLICT_VIOLENCE": "Conflict or violence",
+    "SPEECH_LANGUAGE": "Speech and language",
+    "PHYSICAL_MOBILITY": "Physical or mobility",
+    "UNEMPLOYED_SEEKING": "Unemployed, seeking work",
+    "UNEMPLOYED_NOT_SEEKING": "Unemployed, not seeking work",
+    "GOVERNMENT_PROGRAM": "Government programme",
 }
 
 # Actions the table widgets render, one per list section.
